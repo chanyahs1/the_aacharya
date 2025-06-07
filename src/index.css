@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 m-0 min-h-screen;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-600 text-white rounded-md font-medium hover:bg-primary-700 transition-colors duration-200 flex items-center justify-center;
+  }
+  
+  .btn-outline {
+    @apply px-4 py-2 bg-white border border-neutral-300 text-neutral-800 rounded-md font-medium hover:bg-neutral-50 transition-colors duration-200 flex items-center justify-center;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-card p-6 animate-fade-in;
+  }
+  
+  .status-badge {
+    @apply px-3 py-1 text-sm font-medium rounded-full;
+  }
+  
+  .status-completed {
+    @apply bg-success-100 text-success-800;
+  }
+  
+  .status-pending {
+    @apply bg-warning-100 text-warning-800;
+  }
+}
