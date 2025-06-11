@@ -13,142 +13,106 @@ router.get('/types', async (req, res) => {
   }
 });
 
-// Get employee's leave balance
-router.get('/balance/:employeeId', async (req, res) => {
-  try {
-    const [balances] = await db.execute(`
-      SELECT lb.*, lt.name as leave_type_name, lt.max_days
-      FROM leave_balances lb
-      JOIN leave_types lt ON lb.leave_type_id = lt.id
-      WHERE lb.employee_id = ? AND lb.year = YEAR(CURRENT_DATE)
-    `, [req.params.employeeId]);
-    res.json(balances);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Create leave request
+// Create a leave request
 router.post('/request', async (req, res) => {
-  const {
-    employee_id,
-    leave_type_id,
-    start_date,
-    end_date,
-    total_days,
-    reason
-  } = req.body;
-
+  const { employee_id, leave_type_id, start_date, end_date, total_days, reason } = req.body;
   try {
-    // Check if employee exists
-    const [employee] = await db.execute(`
-      SELECT empID FROM employees_table WHERE empID = ?
-    `, [employee_id]);
-
-    if (!employee.length) {
-      return res.status(404).json({ error: 'Employee not found' });
-    }
-
-    // Check leave balance
-    const [balance] = await db.execute(`
-      SELECT * FROM leave_balances 
-      WHERE employee_id = ? AND leave_type_id = ? AND year = YEAR(CURRENT_DATE)
-    `, [employee_id, leave_type_id]);
-
-    if (!balance.length || balance[0].used_days + total_days > balance[0].total_days) {
-      return res.status(400).json({ error: 'Insufficient leave balance' });
-    }
-
-    // Create leave request
-    const [result] = await db.execute(`
-      INSERT INTO leave_requests 
-      (employee_id, leave_type_id, start_date, end_date, total_days, reason)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [employee_id, leave_type_id, start_date, end_date, total_days, reason]);
-
+    const [result] = await db.execute(
+      `INSERT INTO leave_requests (employee_id, leave_type_id, start_date, end_date, total_days, reason)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [employee_id, leave_type_id, start_date, end_date, total_days, reason]
+    );
     res.status(201).json({ id: result.insertId, ...req.body, status: 'Pending' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get employee's leave requests
+// Get all leave requests for an employee
 router.get('/requests/:employeeId', async (req, res) => {
   try {
-    const [requests] = await db.execute(`
-      SELECT lr.*, lt.name as leave_type_name,
-             e.name as employee_name, e.surname as employee_surname,
-             a.name as approver_name, a.surname as approver_surname
-      FROM leave_requests lr
-      JOIN leave_types lt ON lr.leave_type_id = lt.id
-      JOIN employees_table e ON lr.employee_id = e.empID
-      LEFT JOIN employees_table a ON lr.approved_by = a.empID
-      WHERE lr.employee_id = ?
-      ORDER BY lr.created_at DESC
-    `, [req.params.employeeId]);
+    const [requests] = await db.execute(
+      `SELECT lr.*, lt.name as leave_type_name
+       FROM leave_requests lr
+       JOIN leave_types lt ON lr.leave_type_id = lt.id
+       WHERE lr.employee_id = ?
+       ORDER BY lr.created_at DESC`,
+      [req.params.employeeId]
+    );
     res.json(requests);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get all pending leave requests (for HR)
+// Get pending leave requests
 router.get('/pending', async (req, res) => {
   try {
     const [requests] = await db.execute(`
-      SELECT lr.*, lt.name as leave_type_name,
-             e.name as employee_name, e.surname as employee_surname,
-             e.role as employee_role
+      SELECT 
+        lr.*,
+        e.name as employee_name,
+        e.surname as employee_surname,
+        e.department as employee_department,
+        e.role as employee_role,
+        e.empID as employee_empID,
+        e.leaves_taken as total_leaves_taken,
+        lt.name as leave_type_name
       FROM leave_requests lr
+      JOIN employees_table e ON lr.employee_id = e.id
       JOIN leave_types lt ON lr.leave_type_id = lt.id
-      JOIN employees_table e ON lr.employee_id = e.empID
       WHERE lr.status = 'Pending'
       ORDER BY lr.created_at DESC
     `);
     res.json(requests);
   } catch (err) {
+    console.error('Error fetching pending leave requests:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Update leave request status
+// HR: Approve or reject a leave request
 router.patch('/request/:id', async (req, res) => {
-  const { status, approved_by } = req.body;
+  const { status } = req.body;
+  console.log('Updating leave request:', { id: req.params.id, status });
 
   try {
-    await db.query('START TRANSACTION');
+    // First get the leave request details
+    const [leaveRequest] = await db.execute(
+      'SELECT * FROM leave_requests WHERE id = ?',
+      [req.params.id]
+    );
+    console.log('Leave request found:', leaveRequest[0]);
 
-    try {
-      // Update leave request
-      await db.execute(`
-        UPDATE leave_requests 
-        SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `, [status, approved_by, req.params.id]);
-
-      // If approved, update leave balance
-      if (status === 'Approved') {
-        const [request] = await db.execute(`
-          SELECT employee_id, leave_type_id, total_days 
-          FROM leave_requests 
-          WHERE id = ?
-        `, [req.params.id]);
-
-        await db.execute(`
-          UPDATE leave_balances 
-          SET used_days = used_days + ?
-          WHERE employee_id = ? AND leave_type_id = ? AND year = YEAR(CURRENT_DATE)
-        `, [request[0].total_days, request[0].employee_id, request[0].leave_type_id]);
-      }
-
-      await db.query('COMMIT');
-      res.json({ message: 'Leave request updated successfully' });
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
+    if (leaveRequest.length === 0) {
+      return res.status(404).json({ error: 'Leave request not found' });
     }
+
+    const request = leaveRequest[0];
+
+    // Update the leave request status
+    const [updateResult] = await db.execute(
+      'UPDATE leave_requests SET status = ? WHERE id = ?',
+      [status, req.params.id]
+    );
+    console.log('Leave request status updated:', updateResult);
+
+    // If approved, update the employee's leaves_taken count
+    if (status === 'Approved') {
+      const [employeeUpdate] = await db.execute(
+        'UPDATE employees_table SET leaves_taken = COALESCE(leaves_taken, 0) + ? WHERE id = ?',
+        [request.total_days, request.employee_id]
+      );
+      console.log('Employee leaves_taken updated:', employeeUpdate);
+    }
+
+    res.json({ message: 'Leave request updated successfully' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error updating leave request:', err);
+    res.status(500).json({ 
+      error: 'Failed to update request status',
+      details: err.message 
+    });
   }
 });
 

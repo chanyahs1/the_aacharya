@@ -13,9 +13,18 @@ export default function EmployeeLayout() {
 
   const handleLogout = async () => {
     try {
+      // Get current position
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
       const res = await fetch(`http://localhost:5000/api/employees/logout/${currentEmployee.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }),
       });
 
       if (!res.ok) {

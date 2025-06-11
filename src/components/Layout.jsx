@@ -5,7 +5,8 @@ import {
   Cog6ToothIcon, QuestionMarkCircleIcon, ChartBarIcon,
   BanknotesIcon, DocumentTextIcon, UsersIcon, UserPlusIcon,
   Bars3Icon, XMarkIcon, BellIcon, EnvelopeIcon,
-  BriefcaseIcon, CalendarDaysIcon
+  BriefcaseIcon, CalendarDaysIcon, 
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import Logo from './ui/Logo'
@@ -15,19 +16,23 @@ const sidebarItems = [
     title: 'MAIN MENU', 
     items: [
       { name: 'Dashboard', path: '/dashboard', icon: HomeIcon },
-      { name: 'Tasks', path: '/tasks', icon: ClipboardDocumentListIcon },
       { name: 'Calendar', path: '/calendar', icon: CalendarIcon },
+      { name: 'Tasks', path: '/tasks', icon: ClipboardDocumentListIcon },
+      { name: 'Leave Requests', path: '/leave-requests', icon: ExclamationCircleIcon },
       { name: 'FAQs', path: '/faqs', icon: Cog6ToothIcon },
     ]
   },
   {
     title: 'TEAM MANAGEMENT',
     items: [
+      { name: 'Attendance', path: '/attendance', icon: DocumentTextIcon },
+      { name: 'Salary Management', path: '/salary-management', icon: BanknotesIcon },
       { name: 'Performance', path: '/performance', icon: ChartBarIcon },
       { name: 'Employees', path: '/employees', icon: UsersIcon },
-      { name: 'Add New Employee', path: '/add-employee', icon: UserPlusIcon },
       { name: 'Hiring', path: '/hiring', icon: BriefcaseIcon },
-      { name: 'Leave Requests', path: '/leave-requests', icon: CalendarDaysIcon },
+      { name: 'Add New Employee', path: '/add-employee', icon: UserPlusIcon },
+
+
     ]
   }
 ];

@@ -31,32 +31,37 @@ export default function JobPostingModal({ isOpen, onClose, onSubmit }) {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch('http://localhost:5000/api/applications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          jobRole: formData.jobRole
-        })
-      });
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-      if (!response.ok) {
-        throw new Error('Failed to submit application');
-      }
+  try {
+    const formPayload = {
+      name: formData.name,
+      email: formData.email,
+      jobRole: formData.jobRole,
+      position: formData.position,
+    };
 
-      const data = await response.json();
-      onSubmit(data);
-      onClose();
-    } catch (error) {
-      alert('Error submitting application: ' + error.message);
+    const response = await fetch('http://localhost:5000/api/applications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formPayload)
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to submit application');
     }
-  };
+
+    const data = await response.json();
+    onSubmit(data);
+    onClose();
+  } catch (error) {
+    alert('Error submitting application: ' + error.message);
+  }
+};
+
 
   if (!isOpen) return null;
 
@@ -116,31 +121,10 @@ export default function JobPostingModal({ isOpen, onClose, onSubmit }) {
                   value={formData.jobRole}
                   onChange={handleChange}
                   required
-                  placeholder="e.g., Software Developer"
+                  placeholder="e.g., Business Development Associate"
                   className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Position*
-                </label>
-                <select
-                  name="position"
-                  value={formData.position}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="">Select Position</option>
-                  <option value="Junior">Junior</option>
-                  <option value="Mid-Level">Mid-Level</option>
-                  <option value="Senior">Senior</option>
-                  <option value="Lead">Lead</option>
-                  <option value="Manager">Manager</option>
-                </select>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Resume/CV* (PDF or Word)

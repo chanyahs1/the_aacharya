@@ -6,16 +6,16 @@ const router = express.Router();
 // Add new employee
 router.post('/', async (req, res) => {
   const {
-    name, surname, empID, age, email,
-    role, salary, username, password
+    name, surname, empID, email,
+    role, department, salary, username, password
   } = req.body;
 
   try {
     const [result] = await db.execute(
       `INSERT INTO employees_table 
-       (name, surname, empID, age, email, role, salary, username, password, lastLogin, lastLogout, isActive) 
+       (name, surname, empID, email, role, department, salary, username, password, lastLogin, lastLogout, isActive) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, true)`,
-      [name, surname, empID, age, email, role, salary, username, password]
+      [name, surname, empID, email, role, department, salary, username, password]
     );
 
     res.status(201).json({ id: result.insertId, ...req.body, lastLogin: null, lastLogout: null, isActive: true });
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
 
 // Login
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, latitude, longitude } = req.body;
 
   try {
     const [rows] = await db.execute(
@@ -40,8 +40,8 @@ router.post('/login', async (req, res) => {
 
     const employee = rows[0];
     await db.execute(
-      'UPDATE employees_table SET lastLogin = NOW(), lastLogout = NULL, isActive = true WHERE id = ?',
-      [employee.id]
+      'UPDATE employees_table SET lastLogin = NOW(), lastLogout = NULL, isActive = true, loginLatitude = ?, loginLongitude = ? WHERE id = ?',
+      [latitude, longitude, employee.id]
     );
 
     res.json({ ...employee, isActive: true });
@@ -53,12 +53,14 @@ router.post('/login', async (req, res) => {
 // Logout
 router.put('/logout/:id', async (req, res) => {
   const { id } = req.params;
+  const { latitude, longitude } = req.body;
 
   try {
     await db.execute(
-      'UPDATE employees_table SET lastLogout = NOW(), isActive = false WHERE id = ?',
-      [id]
+      'UPDATE employees_table SET lastLogout = NOW(), isActive = false, logoutLatitude = ?, logoutLongitude = ? WHERE id = ?',
+      [latitude, longitude, id]
     );
+
     res.json({ message: 'Logout successful' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,6 +86,7 @@ router.get('/tasks', async (req, res) => {
         e.name as assignee_name,
         e.surname as assignee_surname,
         e.role as assignee_role,
+        e.department as assignee_department,
         tr.productivity_rating,
         tr.quality_rating,
         tr.teamwork_rating,
@@ -104,7 +107,7 @@ router.get('/tasks', async (req, res) => {
 router.get('/:id/tasks', async (req, res) => {
   try {
     const query = `
-      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role
+      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
       FROM tasks t 
       LEFT JOIN employees_table e ON t.assignee_id = e.id
       WHERE t.assignee_id = ?
@@ -129,7 +132,7 @@ router.post('/tasks', async (req, res) => {
     
     // Fetch the created task with assignee details
     const [newTask] = await db.query(`
-      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role
+      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
       FROM tasks t 
       LEFT JOIN employees_table e ON t.assignee_id = e.id
       WHERE t.id = ?
@@ -154,7 +157,7 @@ router.patch('/tasks/:id', async (req, res) => {
     
     // Fetch the updated task with assignee details
     const [updatedTask] = await db.query(`
-      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role
+      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
       FROM tasks t 
       LEFT JOIN employees_table e ON t.assignee_id = e.id
       WHERE t.id = ?
@@ -238,15 +241,16 @@ router.get('/performance', async (req, res) => {
         e.name,
         e.surname,
         e.role,
-        ROUND(AVG(tr.productivity_rating) * 10, 1) as avg_productivity,
-        ROUND(AVG(tr.quality_rating) * 10, 1) as avg_quality,
-        ROUND(AVG(tr.teamwork_rating) * 10, 1) as avg_teamwork,
+        e.department,
+        ROUND(AVG(tr.productivity_rating)*10 , 1) as avg_productivity,
+        ROUND(AVG(tr.quality_rating)*10 , 1) as avg_quality,
+        ROUND(AVG(tr.teamwork_rating)*10 , 1) as avg_teamwork,
         COUNT(tr.id) as total_tasks,
         MAX(tr.rated_at) as last_rated
       FROM employees_table e
       LEFT JOIN task_ratings tr ON e.id = tr.employee_id
       GROUP BY e.id, e.name, e.surname, e.role
-      HAVING COUNT(tr.id) > 0
+      HAVING total_tasks > 0
     `;
 
     const [employeeMetrics] = await db.query(query);
@@ -307,23 +311,24 @@ router.get('/performance', async (req, res) => {
     res.json({
       teamPerformance,
       employeeMetrics: employeeMetrics.map(emp => ({
-        id: emp.id,
-        name: emp.name,
-        surname: emp.surname,
-        role: emp.role,
-        metrics: {
-          productivity: emp.avg_productivity || 0,
-          quality: emp.avg_quality || 0,
-          teamwork: emp.avg_teamwork || 0
-        },
-        totalTasks: emp.total_tasks,
-        lastRated: emp.last_rated,
-        status: calculateStatus(
-          emp.avg_productivity,
-          emp.avg_quality,
-          emp.avg_teamwork
-        )
-      }))
+  id: emp.id,
+  name: emp.name,
+  surname: emp.surname,
+  role: emp.role,
+  department: emp.department,
+  metrics: {
+    productivity: emp.avg_productivity ?? 0,
+    quality: emp.avg_quality ?? 0,
+    teamwork: emp.avg_teamwork ?? 0
+  },
+  totalTasks: emp.total_tasks,
+  lastRated: emp.last_rated,
+  status: calculateStatus(
+    emp.avg_productivity ?? 0,
+    emp.avg_quality ?? 0,
+    emp.avg_teamwork ?? 0
+  )
+}))
     });
   } catch (error) {
     console.error('Error fetching performance data:', error);
@@ -332,12 +337,27 @@ router.get('/performance', async (req, res) => {
 });
 
 // Helper function to calculate performance status
-function calculateStatus(productivity, quality, teamwork) {
-  const average = (productivity + quality + teamwork) / 3;
-  if (average >= 85) return 'Excellent';
-  if (average >= 70) return 'Good';
-  return 'Average';
+function calculateStatus(productivity = 0, quality = 0, teamwork = 0) {
+  const average =
+    (Number(productivity) + Number(quality) + Number(teamwork)) / 3;
+  if (average >= 90) {
+    return 'Outstanding';
+  } else if (average >= 80) {
+    return 'Excellent';
+  } else if (average >= 70) {
+    return 'Very Good';
+  }
+  else if (average >= 60) {
+    return 'Good';
+  }
+  else if (average >= 50) {
+    return 'Average';
+  }
+  return `Needs Improvement`;
 }
+
+
+
 
 // Get calendar events
 router.get('/calendar-events', async (req, res) => {
@@ -414,7 +434,7 @@ router.post('/calendar-events', async (req, res) => {
 
         // Create notifications for all attendees
         const notificationValues = attendees.map(id => 
-          `(${parseInt(id)}, 'New Event Scheduled', 'You have been invited to: ${title}', 'event', ${eventResult.insertId}, NOW(), false)`
+          `(${parseInt(id)}, 'Link: ${title}', '${description}', 'event', ${eventResult.insertId}, NOW(), false)`
         ).join(',');
 
         await db.query(
@@ -521,7 +541,7 @@ router.put('/calendar-events/:id', async (req, res) => {
 
         // Create notifications for new attendees
         const notificationValues = attendees.map(id => 
-          `(${parseInt(id)}, 'Event Updated', 'The event "${title}" has been updated', 'event', ${req.params.id}, NOW(), false)`
+          `(${parseInt(id)}, 'Link : ${title}', 'The event has been updated :${description}', 'event', ${req.params.id}, NOW(), false)`
         ).join(',');
 
         await db.query(
@@ -597,7 +617,7 @@ router.delete('/calendar-events/:id', async (req, res) => {
       if (event[0].attendee_ids) {
         const attendeeIds = event[0].attendee_ids.split(',');
         const notificationValues = attendeeIds.map(id => 
-          `(${parseInt(id)}, 'Event Cancelled', 'The event "${event[0].title}" has been cancelled', 'event', ${req.params.id}, NOW(), false)`
+          `(${parseInt(id)}, 'Event Cancelled', 'The event has been cancelled', 'event', ${req.params.id}, NOW(), false)`
         ).join(',');
 
         await db.query(

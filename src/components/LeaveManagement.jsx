@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { CalendarIcon, ClockIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 export default function LeaveManagement({ employeeId }) {
   const [leaveTypes, setLeaveTypes] = useState([]);
-  const [leaveBalance, setLeaveBalance] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,23 +15,17 @@ export default function LeaveManagement({ employeeId }) {
 
   useEffect(() => {
     fetchLeaveData();
+    // eslint-disable-next-line
   }, [employeeId]);
 
   const fetchLeaveData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-
       // Fetch leave types
       const typesRes = await fetch('http://localhost:5000/api/leaves/types');
       const typesData = await typesRes.json();
       setLeaveTypes(typesData);
-
-      // Fetch leave balance
-      const balanceRes = await fetch(`http://localhost:5000/api/leaves/balance/${employeeId}`);
-      const balanceData = await balanceRes.json();
-      setLeaveBalance(balanceData);
-
       // Fetch leave requests
       const requestsRes = await fetch(`http://localhost:5000/api/leaves/requests/${employeeId}`);
       const requestsData = await requestsRes.json();
@@ -53,12 +44,9 @@ export default function LeaveManagement({ employeeId }) {
       const startDate = new Date(formData.start_date);
       const endDate = new Date(formData.end_date);
       const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
       const response = await fetch('http://localhost:5000/api/leaves/request', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employee_id: employeeId,
           leave_type_id: formData.leave_type_id,
@@ -68,19 +56,11 @@ export default function LeaveManagement({ employeeId }) {
           reason: formData.reason
         }),
       });
-
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to submit leave request');
       }
-
-      // Reset form and refresh data
-      setFormData({
-        leave_type_id: '',
-        start_date: '',
-        end_date: '',
-        reason: ''
-      });
+      setFormData({ leave_type_id: '', start_date: '', end_date: '', reason: '' });
       setShowRequestForm(false);
       fetchLeaveData();
     } catch (err) {
@@ -89,10 +69,7 @@ export default function LeaveManagement({ employeeId }) {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   if (isLoading) {
@@ -106,31 +83,6 @@ export default function LeaveManagement({ employeeId }) {
           <p className="text-error-800">{error}</p>
         </div>
       )}
-
-      {/* Leave Balance Section */}
-      <div className="bg-white rounded-lg shadow-card p-6">
-        <h2 className="text-lg font-semibold text-neutral-800 mb-4">Leave Balance</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {leaveBalance.map((balance) => (
-            <div
-              key={balance.leave_type_id}
-              className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-            >
-              <h3 className="font-medium text-neutral-900">{balance.leave_type_name}</h3>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm text-neutral-500">
-                  {balance.used_days} / {balance.total_days} days used
-                </span>
-                <span className="text-sm font-medium text-primary-600">
-                  {balance.total_days - balance.used_days} days remaining
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Leave Request Form */}
       <div className="bg-white rounded-lg shadow-card p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-neutral-800">Leave Requests</h2>
@@ -141,14 +93,11 @@ export default function LeaveManagement({ employeeId }) {
             {showRequestForm ? 'Cancel' : 'New Request'}
           </button>
         </div>
-
         {showRequestForm && (
           <form onSubmit={handleSubmit} className="space-y-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Leave Type
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Leave Type</label>
                 <select
                   name="leave_type_id"
                   required
@@ -158,17 +107,12 @@ export default function LeaveManagement({ employeeId }) {
                 >
                   <option value="">Select Leave Type</option>
                   {leaveTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
+                    <option key={type.id} value={type.id}>{type.name}</option>
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Start Date
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Start Date</label>
                 <input
                   type="date"
                   name="start_date"
@@ -178,11 +122,8 @@ export default function LeaveManagement({ employeeId }) {
                   onChange={handleChange}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  End Date
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">End Date</label>
                 <input
                   type="date"
                   name="end_date"
@@ -192,11 +133,8 @@ export default function LeaveManagement({ employeeId }) {
                   onChange={handleChange}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Reason
-                </label>
+                <label className="block text-sm font-medium text-neutral-700 mb-2">Reason</label>
                 <textarea
                   name="reason"
                   required
@@ -207,7 +145,6 @@ export default function LeaveManagement({ employeeId }) {
                 />
               </div>
             </div>
-
             <div className="flex justify-end">
               <button
                 type="submit"
@@ -218,29 +155,20 @@ export default function LeaveManagement({ employeeId }) {
             </div>
           </form>
         )}
-
-        {/* Leave Requests List */}
         <div className="space-y-4">
           {leaveRequests.length === 0 ? (
             <p className="text-neutral-500 text-center py-4">No leave requests found</p>
           ) : (
             leaveRequests.map((request) => (
-              <div
-                key={request.id}
-                className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-              >
+              <div key={request.id} className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-medium text-neutral-900">
-                      {request.leave_type_name}
-                    </h3>
+                    <h3 className="font-medium text-neutral-900">{request.leave_type_name}</h3>
                     <div className="mt-1 flex items-center space-x-4 text-sm text-neutral-500">
                       <span className="flex items-center">
-                        <CalendarIcon className="w-4 h-4 mr-1" />
                         {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
                       </span>
                       <span className="flex items-center">
-                        <ClockIcon className="w-4 h-4 mr-1" />
                         {request.total_days} days
                       </span>
                     </div>
@@ -254,14 +182,11 @@ export default function LeaveManagement({ employeeId }) {
                   </span>
                 </div>
                 {request.reason && (
-                  <div className="mt-2 flex items-start">
-                    <DocumentTextIcon className="w-4 h-4 text-neutral-400 mr-2 mt-1" />
-                    <p className="text-sm text-neutral-600">{request.reason}</p>
-                  </div>
+                  <div className="mt-2 text-sm text-neutral-600">Reason: {request.reason}</div>
                 )}
                 {request.approved_by && (
                   <div className="mt-2 text-xs text-neutral-500">
-                    Approved by: {request.approver_name} {request.approver_surname}
+                    Approved by: {request.approved_by}
                   </div>
                 )}
               </div>

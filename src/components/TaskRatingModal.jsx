@@ -25,36 +25,37 @@ export default function TaskRatingModal({ isOpen, onClose, task, onSubmit }) {
     teamwork: 7
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`http://localhost:5000/api/employees/tasks/${task.id}/rating`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          taskId: task.id,
-          employeeId: task.assignee_id,
-          ratings: {
-            ...ratings,
-            taskTitle: task.title,
-            completedDate: new Date().toISOString()
-          }
-        }),
-      });
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const response = await fetch(`http://localhost:5000/api/employees/tasks/${task.id}/rating`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        employeeId: task.assignee_id,
+        ratings: {
+          productivity: ratings.productivity,
+          quality: ratings.quality,
+          teamwork: ratings.teamwork
+        }
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error('Failed to submit ratings');
-      }
-
-      onSubmit(ratings);
-      onClose();
-    } catch (error) {
-      console.error('Error submitting ratings:', error);
-      alert('Failed to submit ratings. Please try again.');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to submit ratings');
     }
-  };
+
+    onSubmit(ratings);
+    onClose();
+  } catch (error) {
+    console.error('Error submitting ratings:', error);
+    alert(error.message);
+  }
+};
+
 
   if (!isOpen) return null;
 

@@ -249,7 +249,7 @@ export default function CalendarPage() {
                           'bg-warning-50 text-warning-700 hover:bg-warning-100'
                       }`}
                   >
-                    <div className="font-medium">{event.title}</div>
+                    <div className="font-medium">MEET</div>
                     <div className="text-xs opacity-75">
                       {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>

@@ -97,7 +97,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Title
+              Link
             </label>
             <input
               type="text"
@@ -181,7 +181,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
             >
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.name} {emp.surname} - {emp.role}
+                  {emp.name} {emp.surname} - {emp.department} {emp.role}
                 </option>
               ))}
             </select>

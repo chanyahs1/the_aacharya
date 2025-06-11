@@ -167,7 +167,7 @@ export default function PerformancePage() {
                           {employee.name} {employee.surname}
                         </div>
                         <div className="text-sm text-neutral-500">
-                          {employee.role}
+                          {employee.department} {employee.role}
                         </div>
                       </div>
                     </div>
@@ -209,12 +209,18 @@ export default function PerformancePage() {
                     {employee.totalTasks} tasks
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${employee.status === 'Excellent' ? 'bg-success-100 text-success-800' :
-                        employee.status === 'Good' ? 'bg-primary-100 text-primary-800' :
-                          'bg-warning-100 text-warning-800'}`}>
-                      {employee.status}
-                    </span>
+  <span
+  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+    ${employee.status === 'Outstanding' ? 'bg-green-100 text-green-800' :
+      employee.status === 'Excellent' ? 'bg-emerald-100 text-emerald-800' :
+      employee.status === 'Very Good' ? 'bg-blue-100 text-blue-800' :
+      employee.status === 'Good' ? 'bg-primary-100 text-primary-800' :
+      employee.status === 'Average' ? 'bg-yellow-100 text-yellow-800' :
+      'bg-red-100 text-red-800'}` // Needs Improvement
+  }>
+  {employee.status}
+</span>
+
                   </td>
                 </tr>
               ))}

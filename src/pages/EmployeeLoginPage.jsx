@@ -21,10 +21,19 @@ export default function EmployeeLoginPage() {
     setIsLoading(true);
 
     try {
+      // Get current position
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
       const res = await fetch('http://localhost:5000/api/employees/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          ...credentials,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }),
       });
 
       const data = await res.json();

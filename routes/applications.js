@@ -87,17 +87,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    // Check if trying to approve/reject in round 2 or higher without round 1 approval
-    if (current_round > 1 && !existingApp[0].round1_approved_by) {
-      return res.status(400).json({ 
-        error: 'Cannot proceed to round ' + current_round + ' without round 1 approval' 
-      });
-    }
-
     // Get current history
     const currentHistory = existingApp[0].history || '';
     
-    // Create new history entry without round number
+    // Create new history entry
     let newHistoryEntry = '';
     if (round_approver) {
       if (status === 'Rejected') {
@@ -112,21 +105,17 @@ router.put('/:id', async (req, res) => {
       ? `${currentHistory}, ${newHistoryEntry}`
       : newHistoryEntry;
 
-    // Prepare the update query based on the current round
-    let updateQuery = 'UPDATE applications SET status = ?, is_approved = ?, current_round = ?, history = ?';
-    let updateParams = [status, is_approved, current_round, updatedHistory];
-
-    // Add the appropriate round approver column
-    if (round_approver) {
-      updateQuery += `, round${current_round}_approved_by = ?`;
-      updateParams.push(round_approver);
-    }
-
-    updateQuery += ' WHERE id = ?';
-    updateParams.push(id);
-
     // Update the application
-    const [result] = await db.execute(updateQuery, updateParams);
+    const [result] = await db.execute(
+      `UPDATE applications 
+       SET status = ?,
+           is_approved = ?,
+           current_round = ?,
+           history = ?,
+           round${current_round}_approved_by = ?
+       WHERE id = ?`,
+      [status, is_approved, current_round, updatedHistory, round_approver, id]
+    );
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Application not found' });
@@ -135,21 +124,21 @@ router.put('/:id', async (req, res) => {
     // Get the updated application
     const [updatedApp] = await db.execute(
       `SELECT a.*, 
-             e.name as assignee_name, 
-             e.surname as assignee_surname,
-             e.role as assignee_role,
-             e.email as assignee_email,
-             a.is_approved,
-             a.current_round,
-             a.history,
-             a.round1_approved_by,
-             a.round2_approved_by,
-             a.round3_approved_by,
-             a.round4_approved_by,
-             a.round5_approved_by
-      FROM applications a
-      LEFT JOIN employees_table e ON a.assign_to = e.id
-      WHERE a.id = ?`,
+              e.name as assignee_name, 
+              e.surname as assignee_surname,
+              e.role as assignee_role,
+              e.email as assignee_email,
+              a.is_approved,
+              a.current_round,
+              a.history,
+              a.round1_approved_by,
+              a.round2_approved_by,
+              a.round3_approved_by,
+              a.round4_approved_by,
+              a.round5_approved_by
+       FROM applications a
+       LEFT JOIN employees_table e ON a.assign_to = e.id
+       WHERE a.id = ?`,
       [id]
     );
 
@@ -247,6 +236,25 @@ router.put('/:id/send', async (req, res) => {
 
     res.json(rows[0]);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete application
+router.delete('/:id', async (req, res) => {
+  try {
+    const [result] = await db.execute(
+      'DELETE FROM applications WHERE id = ?',
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    res.json({ message: 'Application deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting application:', err);
     res.status(500).json({ error: err.message });
   }
 });

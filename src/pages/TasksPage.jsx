@@ -221,7 +221,7 @@ export default function TasksPage() {
                             {task.assignee_name} {task.assignee_surname}
                           </span>
                           <span className="text-xs text-neutral-500">
-                            {task.assignee_role || 'No role assigned'}
+                            {task.assignee_department} {task.assignee_role}
                           </span>
                         </div>
                       </td>

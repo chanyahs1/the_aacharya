@@ -17,6 +17,8 @@ import CalendarPage from './pages/CalendarPage';
 import PerformancePage from './pages/PerformancePage';
 import HiringPage from './pages/HiringPage';
 import LeaveRequestsPage from './pages/LeaveRequestsPage';
+import SalaryManagementPage from './pages/SalaryManagementPage';
+import AttendancePage from './pages/AttendancePage';
 
 function App() {
   return (
@@ -42,6 +44,8 @@ function App() {
         <Route path="/add-employee" element={<AddNewEmployeePage />} />
         <Route path="/hiring" element={<HiringPage />} />
         <Route path="/leave-requests" element={<LeaveRequestsPage />} />
+        <Route path="/salary-management" element={<SalaryManagementPage />} />
+        <Route path="/attendance" element={<AttendancePage />} />
       </Route>
 
       {/* Employee Routes with Employee Layout */}

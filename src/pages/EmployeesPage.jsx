@@ -95,7 +95,13 @@ export default function EmployeesPage() {
                   Last Login
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Login Location
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Last Logout
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                  Logout Location
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                   Actions
@@ -129,7 +135,7 @@ export default function EmployeesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
-                      {employee.role}
+                      {employee.department} {employee.role}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -145,7 +151,31 @@ export default function EmployeesPage() {
                     {employee.lastLogin ? format(new Date(employee.lastLogin), 'dd MMM yyyy HH:mm:ss') : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                    {employee.loginLatitude && employee.loginLongitude ? (
+                      <a 
+                        href={`https://www.google.com/maps?q=${employee.loginLatitude},${employee.loginLongitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        {employee.loginLatitude.toFixed(6)}, {employee.loginLongitude.toFixed(6)}
+                      </a>
+                    ) : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                     {employee.lastLogout ? format(new Date(employee.lastLogout), 'dd MMM yyyy HH:mm:ss') : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                    {employee.logoutLatitude && employee.logoutLongitude ? (
+                      <a 
+                        href={`https://www.google.com/maps?q=${employee.logoutLatitude},${employee.logoutLongitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        {employee.logoutLatitude.toFixed(6)}, {employee.logoutLongitude.toFixed(6)}
+                      </a>
+                    ) : '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-3">

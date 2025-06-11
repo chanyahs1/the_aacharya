@@ -3,6 +3,7 @@ import cors from 'cors';
 import employeeRoutes from './routes/employees.js';
 import applicationRoutes from './routes/applications.js';
 import leaveRoutes from './routes/leaves.js';
+import attendanceRoutes from './routes/attendance.js';
 
 const app = express();
 const PORT = 5000;
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use('/api/employees', employeeRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/leaves', leaveRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

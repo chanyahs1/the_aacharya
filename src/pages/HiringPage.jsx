@@ -358,7 +358,7 @@ export default function HiringPage() {
 
       {/* Applications Table */}
       <div className="mt-6">
-        <h2 className="text-lg font-medium text-neutral-800 mb-4">Applications</h2>
+        
         <ApplicationsTable
           applications={applications}
           onView={handleViewApplication}

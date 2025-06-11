@@ -202,15 +202,15 @@ export default function EmployeeDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Leave Management Section */}
         <div className="lg:col-span-1">
-          <LeaveManagement employeeId={currentEmployee.empID} />
+          <LeaveManagement employeeId={currentEmployee?.id} />
         </div>
 
         {/* Interviews Section */}
         <div className="lg:col-span-1">
           {currentEmployee && (
             <>
-              {console.log('Rendering Interviews with employeeId:', currentEmployee.id)}
-              <Interviews employeeId={currentEmployee.id} />
+              {console.log('Rendering Interviews with employeeId:', currentEmployee?.id)}
+              <Interviews employeeId={currentEmployee?.id} />
             </>
           )}
         </div>
