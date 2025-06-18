@@ -1,54 +1,125 @@
 import express from 'express';
 import db from '../db.js';
+import multer from 'multer';
+import pool from '../db.js'; // adjust path if needed
 
 const router = express.Router();
+const upload = multer({ dest: 'uploads/' });
 
 // Add new employee
 router.post('/', async (req, res) => {
   const {
-    name, surname, empID, email,
-    role, department, salary, username, password
+    name,
+    surname,
+    empID,
+    email,
+    role,
+    department,
+    salary,
+    username,
+    password,
+    state,
+    district,
+    lastLogin,
+    lastLogout,
+    loginLatitude,
+    loginLongitude,
+    logoutLatitude,
+    logoutLongitude,
   } = req.body;
 
   try {
-    const [result] = await db.execute(
+    await db.query(
       `INSERT INTO employees_table 
-       (name, surname, empID, email, role, department, salary, username, password, lastLogin, lastLogout, isActive) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, true)`,
-      [name, surname, empID, email, role, department, salary, username, password]
+      (name, surname, empID, email, role, department, salary, username, password, state, district, lastLogin, lastLogout, loginLatitude,
+    loginLongitude,
+    logoutLatitude,
+    logoutLongitude,) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?,?)`,
+      [name, surname, empID, email, role, department, salary, username, password, state, district, lastLogin, lastLogout, loginLatitude,
+    loginLongitude,
+    logoutLatitude,
+    logoutLongitude,]
     );
 
-    res.status(201).json({ id: result.insertId, ...req.body, lastLogin: null, lastLogout: null, isActive: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json({ message: 'Employee added successfully' });
+  } catch (error) {
+    console.error('Error adding employee:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Login
 router.post('/login', async (req, res) => {
-  const { username, password, latitude, longitude } = req.body;
+  const { username, password } = req.body;
+    const { latitude, longitude } = req.body;
+
+
+  console.log('Attempting login with:', { username, password });
 
   try {
     const [rows] = await db.execute(
-      'SELECT * FROM employees_table WHERE username = ? AND password = ?',
+      'SELECT * FROM employees_table WHERE username = ? AND password = ? AND department != "HR"', 
       [username, password]
     );
 
     if (rows.length === 0) {
+      console.log('Login failed: Invalid credentials');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const employee = rows[0];
+
     await db.execute(
-      'UPDATE employees_table SET lastLogin = NOW(), lastLogout = NULL, isActive = true, loginLatitude = ?, loginLongitude = ? WHERE id = ?',
-      [latitude, longitude, employee.id]
+      'UPDATE employees_table SET lastLogin = NOW(), lastLogout = NULL, isActive = true , loginLatitude = ?, loginLongitude = ? WHERE id = ?',
+      [latitude,longitude,employee.id]
     );
 
+    console.log('Login successful for:', employee);
     res.json({ ...employee, isActive: true });
   } catch (err) {
+    console.error('Error during login:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
+router.post('/update-activity', async (req, res) => {
+  const { empID } = req.body;
+  if (!empID) return res.status(400).json({ error: 'empID required' });
+
+  try {
+    await db.query(`
+      UPDATE employees_table 
+      SET last_active = NOW(), isActive = 1 
+      WHERE empID = ?
+    `, [empID]);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Heartbeat update error:", err);
+    res.sendStatus(500);
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  const { empID } = req.body;
+  if (!empID) return res.status(400).json({ error: 'empID required' });
+
+  try {
+    await db.query(`
+      UPDATE employees_table 
+      SET lastLogout = NOW(), isActive = 0 
+      WHERE empID = ?
+    `, [empID]);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Logout error:", err);
+    res.sendStatus(500);
+  }
+});
+
 
 // Logout
 router.put('/logout/:id', async (req, res) => {
@@ -77,8 +148,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get all tasks (for HR)
-router.get('/tasks', async (req, res) => {
+//Get all tasks (for HR)
+router.get('/hr/tasks', async (req, res) => {
   try {
     const query = `
       SELECT 
@@ -103,7 +174,7 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
-// Get tasks for a specific employee
+//Get tasks for a specific employee
 router.get('/:id/tasks', async (req, res) => {
   try {
     const query = `
@@ -115,59 +186,6 @@ router.get('/:id/tasks', async (req, res) => {
     `;
     const [tasks] = await db.query(query, [req.params.id]);
     res.json(tasks);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Create a new task
-router.post('/tasks', async (req, res) => {
-  try {
-    const { title, description, dueDate, priority, assigneeId, status = 'Pending' } = req.body;
-    const query = `
-      INSERT INTO tasks (title, description, due_date, priority, assignee_id, status) 
-      VALUES (?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await db.query(query, [title, description, dueDate, priority, assigneeId, status]);
-    
-    // Fetch the created task with assignee details
-    const [newTask] = await db.query(`
-      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
-      FROM tasks t 
-      LEFT JOIN employees_table e ON t.assignee_id = e.id
-      WHERE t.id = ?
-    `, [result.insertId]);
-    
-    res.status(201).json(newTask[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update task status
-router.patch('/tasks/:id', async (req, res) => {
-  try {
-    const { status } = req.body;
-    const query = `
-      UPDATE tasks 
-      SET status = ?
-      WHERE id = ?
-    `;
-    await db.query(query, [status, req.params.id]);
-    
-    // Fetch the updated task with assignee details
-    const [updatedTask] = await db.query(`
-      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
-      FROM tasks t 
-      LEFT JOIN employees_table e ON t.assignee_id = e.id
-      WHERE t.id = ?
-    `, [req.params.id]);
-    
-    if (updatedTask.length === 0) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-    
-    res.json(updatedTask[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -216,20 +234,20 @@ router.post('/tasks/:id/rating', async (req, res) => {
 });
 
 // Delete a task
-router.delete('/tasks/:id', async (req, res) => {
-  try {
-    const query = 'DELETE FROM tasks WHERE id = ?';
-    const [result] = await db.query(query, [req.params.id]);
+// router.delete('/tasks/:id', async (req, res) => {
+//   try {
+//     const query = 'DELETE FROM tasks WHERE id = ?';
+//     const [result] = await db.query(query, [req.params.id]);
     
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
+//     if (result.affectedRows === 0) {
+//       return res.status(404).json({ error: 'Task not found' });
+//     }
     
-    res.json({ message: 'Task deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+//     res.json({ message: 'Task deleted successfully' });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 // Get employee performance data
 router.get('/performance', async (req, res) => {
@@ -355,9 +373,6 @@ function calculateStatus(productivity = 0, quality = 0, teamwork = 0) {
   }
   return `Needs Improvement`;
 }
-
-
-
 
 // Get calendar events
 router.get('/calendar-events', async (req, res) => {
@@ -677,5 +692,246 @@ router.patch('/notifications/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Get a single employee by id
+router.get('/:id', async (req, res) => {
+  try {
+    const [rows] = await db.execute('SELECT * FROM employees_table WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Place this near the top, before any /:id routes!
+router.get('/department/:department', async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT id, name, surname, email, role, department, empID, salary, lastLogin, loginLatitude, loginLongitude, isActive, district, state
+       FROM employees_table 
+       WHERE department = ?`,
+      [req.params.department]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching department employees:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/:id', async (req, res) => {
+  const { id } = req.params;
+  const allowedFields = ['name', 'surname', 'email', 'role', 'department', 'lastLogout' , 'state' , 'district'];
+  const updates = [];
+  const values = [];
+
+  allowedFields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      updates.push(`${field} = ?`);
+      values.push(req.body[field]);
+    }
+  });
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'No valid fields to update.' });
+  }
+
+  values.push(id);
+
+  try {
+    const [result] = await db.execute(
+      `UPDATE employees_table SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    res.json({ message: 'Employee updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Onboarding form submission
+router.post('/onboarding', upload.fields([
+  { name: 'resume', maxCount: 1 },
+  { name: 'educationalCertificates', maxCount: 5 },
+  { name: 'relievingLetter', maxCount: 1 },
+  { name: 'appointmentLetter', maxCount: 1 },
+  { name: 'experienceLetter', maxCount: 1 },
+  { name: 'paySlips', maxCount: 5 },
+  { name: 'passportPhoto', maxCount: 1 },
+  { name: 'aadharCard', maxCount: 5 },
+  { name: 'panCard', maxCount: 5 },
+  { name: 'bankStatement', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    // req.body contains text fields
+    // req.files contains uploaded files
+    // TODO: Save data to DB as needed
+    res.json({ message: 'Onboarding form received', data: req.body, files: req.files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Get employees by hierarchy/role
+
+// Role hierarchy (highest to lowest)
+const roleHierarchy = [
+  "Head of Department",
+  "Area General Manager",
+  "Senior Manager",
+  "Manager",
+  "Executive",
+  "Associate",
+  "Intern",
+  "Trainee"
+];
+
+router.get('/hierarchy/:role', async (req, res) => {
+  const currentRole = req.params.role;
+  const department = req.query.department;
+
+  const currentRoleIndex = roleHierarchy.indexOf(currentRole);
+
+  if (currentRoleIndex === -1) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+
+  // Get all roles below the current one
+  const lowerRoles = roleHierarchy.slice(currentRoleIndex + 1);
+
+  console.log('Current role:', currentRole);
+  console.log('Lower roles:', lowerRoles);
+  console.log('Department:', department);
+
+  try {
+    const placeholders = lowerRoles.map(() => '?').join(',');
+    const [rows] = await pool.execute(
+      `SELECT id, name, surname, role, department
+       FROM employees_table
+       WHERE department = ?
+       AND role IN (${placeholders})`,
+      [department, ...lowerRoles]
+    );
+
+    console.log('Fetched employees by hierarchy:', rows);
+    res.json(rows);
+  } catch (err) {
+    console.error('Failed to fetch employees by hierarchy:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+
+
+// Get tasks by creator
+router.get('/tasks/creator/:creatorId', async (req, res) => {
+  try {
+    const { creatorId } = req.params;
+    const query = `
+      SELECT t.*, e.name as assignee_name, e.surname as assignee_surname, e.role as assignee_role, e.department as assignee_department
+      FROM tasks t 
+      LEFT JOIN employees_table e ON t.assignee_id = e.id
+      WHERE t.created_by = ?
+      ORDER BY t.due_date ASC
+    `;
+    const [tasks] = await db.query(query, [creatorId]);
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// routes/employees.js or similar
+router.put('/:id/assign-supervisor', async (req, res) => {
+  const { id } = req.params; // employee being assigned
+  const { supervisorId } = req.body;
+
+  if (!id || !supervisorId) {
+    return res.status(400).json({ error: 'Employee ID and Supervisor ID are required.' });
+  }
+
+  try {
+    // 1. Update assigned_supervisor of the employee
+    await db.query(
+      'UPDATE employees_table SET assigned_supervisor = ? WHERE id = ?',
+      [supervisorId, id]
+    );
+
+    // 2. Get existing my_assignees of the supervisor
+    const [[supervisor]] = await db.query(
+      'SELECT my_assignees FROM employees_table WHERE id = ?',
+      [supervisorId]
+    );
+
+    let assignees = supervisor.my_assignees ? supervisor.my_assignees.split(',') : [];
+
+    if (!assignees.includes(id.toString())) {
+      assignees.push(id.toString());
+    }
+
+    // 3. Update my_assignees
+    await db.query(
+      'UPDATE employees_table SET my_assignees = ? WHERE id = ?',
+      [assignees.join(','), supervisorId]
+    );
+
+    res.json({ message: 'Supervisor and assignee updated successfully.' });
+  } catch (err) {
+    console.error('Error assigning supervisor:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Express route
+// routes/employees.js
+router.get('/:id/hierarchy-assignees', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const visited = new Set();
+    const queue = [id];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+
+      if (!visited.has(currentId)) {
+        visited.add(currentId);
+
+        const [rows] = await db.query(
+          'SELECT my_assignees FROM employees_table WHERE id = ?',
+          [currentId]
+        );
+
+        if (rows.length && rows[0].my_assignees) {
+          const assigneeIds = rows[0].my_assignees
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id !== '');
+
+          queue.push(...assigneeIds);
+        }
+      }
+    }
+
+    visited.delete(id); // Remove self
+    res.json({ assigneeIds: Array.from(visited) });
+  } catch (err) {
+    console.error('Error fetching assignees hierarchy:', err);
+    res.status(500).json({ error: 'Failed to fetch assignees hierarchy' });
+  }
+});
+
+
+
+
 
 export default router;

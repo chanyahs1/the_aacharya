@@ -72,48 +72,56 @@ router.get('/pending', async (req, res) => {
 });
 
 // HR: Approve or reject a leave request
+// HR: Approve or reject a leave request
 router.patch('/request/:id', async (req, res) => {
-  const { status } = req.body;
-  console.log('Updating leave request:', { id: req.params.id, status });
+  const { status, remark } = req.body;
+  const { id } = req.params;
 
   try {
-    // First get the leave request details
-    const [leaveRequest] = await db.execute(
-      'SELECT * FROM leave_requests WHERE id = ?',
-      [req.params.id]
-    );
-    console.log('Leave request found:', leaveRequest[0]);
-
-    if (leaveRequest.length === 0) {
+    const [rows] = await db.query('SELECT id FROM leave_requests WHERE id = ?', [id]);
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Leave request not found' });
     }
 
-    const request = leaveRequest[0];
-
-    // Update the leave request status
-    const [updateResult] = await db.execute(
-      'UPDATE leave_requests SET status = ? WHERE id = ?',
-      [status, req.params.id]
-    );
-    console.log('Leave request status updated:', updateResult);
-
-    // If approved, update the employee's leaves_taken count
-    if (status === 'Approved') {
-      const [employeeUpdate] = await db.execute(
-        'UPDATE employees_table SET leaves_taken = COALESCE(leaves_taken, 0) + ? WHERE id = ?',
-        [request.total_days, request.employee_id]
-      );
-      console.log('Employee leaves_taken updated:', employeeUpdate);
+    if (status === 'Rejected' && (!remark || remark.trim() === '')) {
+      return res.status(400).json({ error: 'Remark is required when rejecting a leave request.' });
     }
 
-    res.json({ message: 'Leave request updated successfully' });
+    const updateQuery = `
+      UPDATE leave_requests 
+      SET status = ?, remark = ?
+      WHERE id = ?
+    `;
+    await db.query(updateQuery, [status, remark || null, id]);
+
+    res.json({ success: true, message: 'Leave request updated' });
   } catch (err) {
     console.error('Error updating leave request:', err);
-    res.status(500).json({ 
-      error: 'Failed to update request status',
-      details: err.message 
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// ✅ Move this OUTSIDE the patch route
+router.get('/previous', async (req, res) => {
+  try {
+    const query = `
+      SELECT lr.*, e.name AS employee_name, e.surname AS employee_surname, 
+             e.department AS employee_department, e.role AS employee_role, 
+             e.empID AS employee_empID, lt.name AS leave_type_name
+      FROM leave_requests lr
+      JOIN employees_table e ON lr.employee_id = e.id
+      JOIN leave_types lt ON lr.leave_type_id = lt.id
+      WHERE lr.status != 'Pending'
+      ORDER BY lr.start_date DESC
+    `;
+    const [rows] = await db.query(query);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching previous leave requests:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
 
 export default router; 

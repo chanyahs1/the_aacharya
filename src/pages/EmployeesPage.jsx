@@ -1,11 +1,73 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { EyeIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, ArrowRightOnRectangleIcon, PencilIcon } from '@heroicons/react/24/outline';
+
+// Separate component for role editing
+const RoleEditor = ({ employee, onUpdate, onCancel }) => {
+  const [newRole, setNewRole] = useState(employee.role);
+
+  const handleSave = async () => {
+    await onUpdate(employee.id, newRole);
+  };
+
+  return (
+    <div className="flex items-center space-x-2">
+      <input
+        type="text"
+        value={newRole}
+        onChange={(e) => setNewRole(e.target.value)}
+        className="px-2 py-1 border rounded text-sm"
+        placeholder="Enter new role"
+        autoFocus
+      />
+      <button
+        onClick={handleSave}
+        className="text-success-600 hover:text-success-900"
+      >
+        Save
+      </button>
+      <button
+        onClick={onCancel}
+        className="text-neutral-600 hover:text-neutral-900"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+};
+
+// Role display component
+const RoleDisplay = ({ employee, onEdit }) => {
+  return (
+    <div className="flex items-center space-x-2">
+      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
+        {employee.department} {employee.role}
+      </span>
+      <button
+        onClick={() => onEdit(employee.id)}
+        className="text-primary-600 hover:text-primary-900"
+      >
+        <PencilIcon className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState(null);
+  // Modal state for viewing details
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState(null);
+  // Edit state for modal
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editDetails, setEditDetails] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   // Fetch employees from backend
   const fetchEmployees = async () => {
@@ -31,32 +93,90 @@ export default function EmployeesPage() {
   useEffect(() => {
     fetchEmployees();
   }, []);
-
-  const handleLogout = async (employeeId) => {
+  const handleRoleUpdate = async (employeeId, newRole) => {
     try {
-      const now = new Date().toISOString();
-      // Call backend to update logout time
       const res = await fetch(`http://localhost:5000/api/employees/${employeeId}`, {
-        method: 'PATCH', // or PUT depending on your API
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lastLogout: now }),
+        body: JSON.stringify({ role: newRole }),
       });
 
       if (res.ok) {
-        // Update local state immediately after successful update
-        setEmployees((prev) =>
-          prev.map(emp =>
-            emp._id === employeeId
-              ? { ...emp, lastLogout: now, isActive: false }
-              : emp
-          )
-        );
+        // Instead of just updating local state, re-fetch employees from backend
+        await fetchEmployees();
+        setEditingRoleId(null);
       } else {
-        console.error('Failed to update logout');
+        console.error('Failed to update role');
       }
     } catch (error) {
-      console.error('Error updating logout:', error);
+      console.error('Error updating role:', error);
     }
+  };
+
+  const startEditing = (employeeId) => {
+    setEditingRoleId(employeeId);
+  };
+
+  const cancelEditing = () => {
+    setEditingRoleId(null);
+  };
+
+  const handleViewDetails = async (employeeId) => {
+    setDetailsLoading(true);
+    setDetailsError(null);
+    setShowDetailsModal(true);
+    setIsEditingDetails(false);
+    setEditDetails({});
+    try {
+      const res = await fetch(`http://localhost:5000/api/employees/${employeeId}`);
+      if (!res.ok) throw new Error('Failed to fetch employee details');
+      const data = await res.json();
+      setSelectedEmployeeDetails(data);
+    } catch (err) {
+      setDetailsError(err.message);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleEditDetails = () => {
+    setEditDetails(selectedEmployeeDetails);
+    setIsEditingDetails(true);
+    setEditError(null);
+  };
+
+  const handleEditChange = (e) => {
+    setEditDetails({ ...editDetails, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSave = async () => {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const res = await fetch(`http://localhost:5000/api/employees/${selectedEmployeeDetails.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDetails),
+      });
+      if (!res.ok) throw new Error('Failed to update employee details');
+      // Refresh details
+      const data = await res.json();
+      setSelectedEmployeeDetails({ ...selectedEmployeeDetails, ...editDetails });
+      setIsEditingDetails(false);
+      setEditDetails({});
+      // Optionally, refresh the main employee list
+      fetchEmployees();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setIsEditingDetails(false);
+    setEditDetails({});
+    setEditError(null);
   };
 
   if (loading) {
@@ -117,7 +237,7 @@ export default function EmployeesPage() {
                 </tr>
               )}
               {employees.map((employee) => (
-                <tr key={employee._id} className="hover:bg-neutral-50">
+                <tr key={employee.id} className="hover:bg-neutral-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
                       {employee.empID}
@@ -134,9 +254,18 @@ export default function EmployeesPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800">
-                      {employee.department} {employee.role}
-                    </span>
+                    {editingRoleId === employee.id ? (
+                      <RoleEditor
+                        employee={employee}
+                        onUpdate={handleRoleUpdate}
+                        onCancel={cancelEditing}
+                      />
+                    ) : (
+                      <RoleDisplay
+                        employee={employee}
+                        onEdit={startEditing}
+                      />
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -179,17 +308,12 @@ export default function EmployeesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-3">
-                      <button className="text-primary-600 hover:text-primary-900">
+                      <button
+                        className="text-primary-600 hover:text-primary-900"
+                        onClick={() => handleViewDetails(employee.id)}
+                      >
                         <EyeIcon className="w-5 h-5" />
                       </button>
-                      {employee.isActive && (
-                        <button 
-                          onClick={() => handleLogout(employee._id)}
-                          className="text-neutral-600 hover:text-neutral-900"
-                        >
-                          <ArrowRightOnRectangleIcon className="w-5 h-5" />
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -198,6 +322,136 @@ export default function EmployeesPage() {
           </table>
         </div>
       </div>
+      {/* Details Modal */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+            <button
+              className="absolute top-2 right-2 text-neutral-500 hover:text-neutral-800 text-2xl"
+              onClick={() => setShowDetailsModal(false)}
+            >
+              ×
+            </button>
+            {detailsLoading ? (
+              <div>Loading...</div>
+            ) : detailsError ? (
+              <div className="text-red-500">{detailsError}</div>
+            ) : selectedEmployeeDetails ? (
+              <div>
+                <h2 className="text-xl font-bold mb-4">Employee Details</h2>
+                {isEditingDetails ? (
+                  <>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium">Name:</label>
+                      <input
+                        type="text"
+                        name="name"
+                        value={editDetails.name || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium">Surname:</label>
+                      <input
+                        type="text"
+                        name="surname"
+                        value={editDetails.surname || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium">Email:</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={editDetails.email || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium">Role:</label>
+                      <input
+                        type="text"
+                        name="role"
+                        value={editDetails.role || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium">Department:</label>
+                      <input
+                        type="text"
+                        name="department"
+                        value={editDetails.department || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                     <div className="mb-2">
+                      <label className="block text-sm font-medium">State:</label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={editDetails.state || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                     <div className="mb-2">
+                      <label className="block text-sm font-medium">District:</label>
+                      <input
+                        type="text"
+                        name="district"
+                        value={editDetails.district || ''}
+                        onChange={handleEditChange}
+                        className="w-full border rounded px-2 py-1"
+                      />
+                    </div>
+                    {editError && <div className="text-red-500 mb-2">{editError}</div>}
+                    <div className="flex space-x-2 mt-4">
+                      <button
+                        onClick={handleEditSave}
+                        className="px-4 py-2 bg-success-600 text-white rounded hover:bg-success-700"
+                        disabled={editLoading}
+                      >
+                        {editLoading ? 'Saving...' : 'Save'}
+                      </button>
+                      <button
+                        onClick={handleEditCancel}
+                        className="px-4 py-2 bg-neutral-200 text-neutral-800 rounded hover:bg-neutral-300"
+                        disabled={editLoading}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div><strong>Name:</strong> {selectedEmployeeDetails.name} {selectedEmployeeDetails.surname}</div>
+                    <div><strong>Employee ID:</strong> {selectedEmployeeDetails.empID}</div>
+                    <div><strong>Email:</strong> {selectedEmployeeDetails.email}</div>
+                    <div><strong>Role:</strong> {selectedEmployeeDetails.role}</div>
+                    <div><strong>Department:</strong> {selectedEmployeeDetails.department}</div>
+                    <div><strong>State:</strong> {selectedEmployeeDetails.state}</div>
+                    <div><strong>District:</strong> {selectedEmployeeDetails.district}</div>
+                    {/* Add more fields as needed */}
+                    <button
+                      onClick={handleEditDetails}
+                      className="mt-4 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
+                    >
+                      Edit
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1,32 +1,59 @@
 import express from 'express';
 import db from '../db.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 const router = express.Router();
 
 // Submit new application
-router.post('/', async (req, res) => {
-  const { name, jobRole } = req.body;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure resume upload folder exists
+const uploadDir = path.join(__dirname, '../uploads/resumes');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.doc', '.docx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    allowed.includes(ext) ? cb(null, true) : cb(new Error('Only PDF and Word files are allowed'));
+  }
+});
+
+router.post('/', upload.single('resume'), async (req, res) => {
+  const { name, email, jobRole, position } = req.body;
+  const resumePath = req.file ? `uploads/resumes/${req.file.filename}` : null;
 
   try {
     const [result] = await db.execute(
-      `INSERT INTO applications (candidate_name, job_role) 
-       VALUES (?, ?)`,
-      [name, jobRole]
+      `INSERT INTO applications 
+      (candidate_name, email, job_role, position, resume_path, status, assign_to, send_to, meet_remarks, meet_link, meet_datetime)
+       VALUES (?, ?, ?, ?, ?, 'Pending', NULL, NULL, NULL, NULL, NULL)`,
+      [name, email, jobRole, position, resumePath]
     );
 
-    res.status(201).json({ 
+    res.status(201).json({
       id: result.insertId,
       candidate_name: name,
+      email,
       job_role: jobRole,
-      status: 'Pending',
-      assign_to: null,
-      send_to: null,
-      meet_remarks: null,
-      meet_link: null,
-      meet_datetime: null
+      position,
+      resume_path: resumePath,
+      status: 'Pending'
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
 
@@ -135,7 +162,8 @@ router.put('/:id', async (req, res) => {
               a.round2_approved_by,
               a.round3_approved_by,
               a.round4_approved_by,
-              a.round5_approved_by
+              a.round5_approved_by,
+              a.approved_by_name
        FROM applications a
        LEFT JOIN employees_table e ON a.assign_to = e.id
        WHERE a.id = ?`,

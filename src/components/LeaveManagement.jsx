@@ -181,8 +181,9 @@ export default function LeaveManagement({ employeeId }) {
                     {request.status}
                   </span>
                 </div>
-                {request.reason && (
-                  <div className="mt-2 text-sm text-neutral-600">Reason: {request.reason}</div>
+                {request.status === 'Rejected' && (
+                  <div className="mt-2 text-sm text-neutral-600">Reason : {request.remark}</div>
+
                 )}
                 {request.approved_by && (
                   <div className="mt-2 text-xs text-neutral-500">

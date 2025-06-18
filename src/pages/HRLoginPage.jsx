@@ -5,23 +5,29 @@ import Logo from '../components/ui/Logo';
 
 export default function HRLoginPage() {
   const navigate = useNavigate();
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: '',
-  });
+  const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, these would be environment variables
-    const validEmail = 'admin@theaacharya.com';
-    const validPassword = 'admin123';
+    setError('');
 
-    if (credentials.email === validEmail && credentials.password === validPassword) {
-      localStorage.setItem('hrAuthenticated', 'true');
-      navigate('/dashboard');
-    } else {
-      setError('Invalid email or password');
+    try {
+      const res = await fetch('http://localhost:5000/api/hr/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+
+      // ✅ Store HR session
+      sessionStorage.setItem('currentHR', JSON.stringify(data));
+      navigate('/dashboard'); // Change to your HR dashboard route
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -40,7 +46,7 @@ export default function HRLoginPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-error-50 text-error-700 rounded-md">
+          <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-md">
             {error}
           </div>
         )}
@@ -48,14 +54,16 @@ export default function HRLoginPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Email
+              Username
             </label>
             <input
-              type="email"
+              type="text"
               required
               className="w-full px-4 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500"
-              value={credentials.email}
-              onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+              value={credentials.username}
+              onChange={(e) =>
+                setCredentials({ ...credentials, username: e.target.value })
+              }
             />
           </div>
 
@@ -68,7 +76,9 @@ export default function HRLoginPage() {
               required
               className="w-full px-4 py-2 border border-neutral-300 rounded-md focus:ring-2 focus:ring-primary-500"
               value={credentials.password}
-              onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+              onChange={(e) =>
+                setCredentials({ ...credentials, password: e.target.value })
+              }
             />
           </div>
 

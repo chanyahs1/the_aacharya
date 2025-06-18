@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
 
-export default function TaskModal({ isOpen, onClose, onSubmit }) {
+export default function TaskModal({ isOpen, onClose, onSubmit, employees }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -10,25 +10,9 @@ export default function TaskModal({ isOpen, onClose, onSubmit }) {
     priority: 'Medium',
     assigneeId: ''
   });
-  const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/employees');
-        if (!response.ok) {
-          throw new Error('Failed to fetch employees');
-        }
-        const data = await response.json();
-        setEmployees(data);
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        alert('Failed to fetch employees. Please try again.');
-      }
-    };
-
     if (isOpen) {
-      fetchEmployees();
       // Reset form data when modal opens
       setFormData({
         title: '',

@@ -7,7 +7,6 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
     description: '',
     startTime: '',
     endTime: '',
-    eventType: 'meeting',
     attendees: []
   });
 
@@ -25,7 +24,6 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
           description: event.description || '',
           startTime: new Date(event.start_time).toISOString().slice(0, 16),
           endTime: new Date(event.end_time).toISOString().slice(0, 16),
-          eventType: event.event_type,
           attendees: event.attendees ? event.attendees.map(a => a.id.toString()) : []
         });
       } else {
@@ -57,7 +55,6 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
       description: '',
       startTime: '',
       endTime: '',
-      eventType: 'meeting',
       attendees: []
     });
   };
@@ -84,7 +81,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-neutral-800">
-            {event ? 'Update Event' : 'Schedule Event'}
+            {event ? 'Update Meeting' : 'Schedule Meeting'}
           </h2>
           <button
             onClick={onClose}
@@ -97,7 +94,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Link
+              Meeting Title
             </label>
             <input
               type="text"
@@ -105,6 +102,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              placeholder="Enter meeting title"
             />
           </div>
 
@@ -117,6 +115,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
               rows={3}
               className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              placeholder="Enter meeting description"
             />
           </div>
 
@@ -147,22 +146,6 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
                 className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Event Type
-            </label>
-            <select
-              value={formData.eventType}
-              onChange={(e) => setFormData(prev => ({ ...prev, eventType: e.target.value }))}
-              className="w-full rounded-md border-neutral-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-            >
-              <option value="meeting">Meeting</option>
-              <option value="payroll">Payroll</option>
-              <option value="deadline">Deadline</option>
-              <option value="other">Other</option>
-            </select>
           </div>
 
           <div>
@@ -202,7 +185,7 @@ export default function EventModal({ isOpen, onClose, onSubmit, selectedDate, em
               type="submit"
               className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
             >
-              {event ? 'Update Event' : 'Schedule Event'}
+              {event ? 'Update Meeting' : 'Schedule Meeting'}
             </button>
           </div>
         </form>

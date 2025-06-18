@@ -20,7 +20,12 @@ export default function JobPostingModal({ isOpen, onClose, onSubmit }) {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && (file.type === 'application/pdf' || file.type === 'application/msword' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+    if (
+      file &&
+      (file.type === 'application/pdf' ||
+        file.type === 'application/msword' ||
+        file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    ) {
       setFormData(prev => ({
         ...prev,
         resume: file
@@ -31,37 +36,33 @@ export default function JobPostingModal({ isOpen, onClose, onSubmit }) {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  try {
-    const formPayload = {
-      name: formData.name,
-      email: formData.email,
-      jobRole: formData.jobRole,
-      position: formData.position,
-    };
+    try {
+      const formPayload = new FormData();
+      formPayload.append('name', formData.name);
+      formPayload.append('email', formData.email);
+      formPayload.append('jobRole', formData.jobRole);
+      formPayload.append('position', formData.position);
+      formPayload.append('resume', formData.resume);
 
-    const response = await fetch('http://localhost:5000/api/applications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formPayload)
-    });
+      const response = await fetch('http://localhost:5000/api/applications', {
+        method: 'POST',
+        body: formPayload
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to submit application');
+      if (!response.ok) {
+        throw new Error('Failed to submit application');
+      }
+
+      const data = await response.json();
+      onSubmit(data);
+      onClose();
+    } catch (error) {
+      alert('Error submitting application: ' + error.message);
     }
-
-    const data = await response.json();
-    onSubmit(data);
-    onClose();
-  } catch (error) {
-    alert('Error submitting application: ' + error.message);
-  }
-};
-
+  };
 
   if (!isOpen) return null;
 
@@ -69,7 +70,7 @@ const handleSubmit = async (e) => {
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="fixed inset-0 bg-black opacity-30"></div>
-        
+
         <div className="relative bg-white rounded-lg w-full max-w-md p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-neutral-800">Submit Application</h2>
@@ -125,6 +126,20 @@ const handleSubmit = async (e) => {
                   className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Position
+                </label>
+                <input
+                  type="text"
+                  name="position"
+                  value={formData.position}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">
                   Resume/CV* (PDF or Word)
