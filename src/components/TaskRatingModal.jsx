@@ -28,7 +28,7 @@ export default function TaskRatingModal({ isOpen, onClose, task, onSubmit }) {
  const handleSubmit = async (e) => {
   e.preventDefault();
   try {
-    const response = await fetch(`http://localhost:5000/api/employees/tasks/${task.id}/rating`, {
+    const response = await fetch(`https://the-aacharya.onrender.com/api/employees/tasks/${task.id}/rating`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

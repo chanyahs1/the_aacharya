@@ -43,14 +43,15 @@ router.post('/', async (req, res) => {
       email,
       address,
       employeeId,
+      employeeName,
       sessionDateTime
     } = req.body;
 
     const insertQuery = `
       INSERT INTO direct_sessions (
         student_name, class, board, school, father_name, contact_number,
-        email, address, selfie, employee_id, session_datetime
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        email, address, selfie, employee_id, employee_name, session_datetime
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -64,6 +65,7 @@ router.post('/', async (req, res) => {
       address || null,
       null, // selfie is null in POST
       employeeId || null,
+      employeeName || null, // employeeName should be passed from the frontend
       sessionDateTime || null
     ];
 
@@ -158,17 +160,22 @@ router.put('/:id/hodremark', async (req, res) => {
  */
 router.put('/:id/selfie', upload.single('selfie'), async (req, res) => {
   const { id } = req.params;
+  const { latitude, longitude } = req.body;
 
   if (!req.file) {
     return res.status(400).json({ error: 'No selfie file uploaded.' });
   }
 
   const selfiePath = path.join('directsession', req.file.filename);
+  let selfieLocation = null;
+  if (latitude && longitude) {
+    selfieLocation = `${latitude},${longitude}`;
+  }
 
   try {
     const [result] = await db.query(
-      'UPDATE direct_sessions SET selfie = ? WHERE id = ?',
-      [selfiePath, id]
+      'UPDATE direct_sessions SET selfie = ?, selfie_location = ? WHERE id = ?',
+      [selfiePath, selfieLocation, id]
     );
 
     if (result.affectedRows === 0) {

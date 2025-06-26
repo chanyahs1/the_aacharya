@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ListChecks } from 'lucide-react';
 
 function formatDate(dateString) {
   const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -26,7 +28,7 @@ export default function EmployeeCurrentTasksPage() {
 
 const handleUpdateTaskStatus = async (taskId, newStatus) => {
   try {
-    const response = await fetch(`http://localhost:5000/api/employees/tasks/${taskId}/status`, {
+    const response = await fetch(`https://the-aacharya.onrender.com/api/employees/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +49,7 @@ const handleUpdateTaskStatus = async (taskId, newStatus) => {
 
 const handleSaveRemark = async (taskId) => {
   try {
-    const response = await fetch(`http://localhost:5000/api/employees/tasks/${taskId}/remarks`, {
+    const response = await fetch(`https://the-aacharya.onrender.com/api/employees/tasks/${taskId}/remarks`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +77,7 @@ const handleSaveRemark = async (taskId) => {
 
     try {
       setError(null);
-      const response = await fetch(`http://localhost:5000/api/employees/${currentEmployee?.id}/tasks`);
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/${currentEmployee?.id}/tasks`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch tasks: ${response.status} ${errorText}`);
@@ -119,94 +121,111 @@ const handleSaveRemark = async (taskId) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-card p-6">
-      <h2 className="text-lg font-semibold text-neutral-800 mb-4">Current Tasks</h2>
-      <div className="space-y-4">
-        {isInitialLoading ? (
-          <p className="text-neutral-500 text-center py-4">Loading tasks...</p>
-        ) : tasks.current.length > 0 ? (
-          tasks.current.map((task) => (
-            <div
-              key={task.id}
-              className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-            >
-              <h3 className="font-medium text-neutral-900">{task.title}</h3>
-              {task.description && (
-                <p className="text-sm text-neutral-500 mt-1">{task.description}</p>
-              )}
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-sm text-neutral-500">
-                  Due: {formatDate(task.due_date)}
-                </span>
-                <select
-                  value={task.status}
-                  onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
-                  className={`text-xs px-2.5 py-1 rounded-full border-0 focus:ring-2 focus:ring-offset-2
-                    ${task.status === 'Completed'
-                      ? 'bg-green-100 text-green-800 focus:ring-green-500'
-                      : task.status === 'In Progress'
-                        ? 'bg-blue-100 text-blue-800 focus:ring-blue-500'
-                        : 'bg-yellow-100 text-yellow-800 focus:ring-yellow-500'
-                    }`}
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bg-gray-50 min-h-screen p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white p-6 rounded-xl shadow-md flex items-center gap-4 mb-6">
+          <div className="bg-blue-100 p-3 rounded-full">
+            <ListChecks className="w-9 h-9 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Current Tasks</h1>
+            <p className="text-gray-500 flex items-center gap-2 mt-1">
+              {currentEmployee?.full_name || currentEmployee?.name} | {currentEmployee?.empID} | {currentEmployee?.department}
+            </p>
+          </div>
+        </div>
+        {/* Tasks Card */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-lg font-semibold text-neutral-800 mb-4">Current Tasks</h2>
+          <div className="space-y-4">
+            {isInitialLoading ? (
+              <p className="text-neutral-500 text-center py-4">Loading tasks...</p>
+            ) : tasks.current.length > 0 ? (
+              tasks.current.map((task) => (
+                <div
+                  key={task.id}
+                  className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
                 >
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
-
-              <div className="mt-3">
-                {editingRemarkId === task.id ? (
-                  <div className="space-y-2">
-                    <textarea
-                      className="w-full border border-neutral-300 rounded-md p-2 text-sm"
-                      placeholder="Enter your remark"
-                      value={remarkInput}
-                      onChange={(e) => setRemarkInput(e.target.value)}
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleSaveRemark(task.id)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingRemarkId(null);
-                          setRemarkInput('');
-                        }}
-                        className="text-sm text-neutral-600 hover:underline"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {task.assignee_remarks && (
-                      <p className="text-sm text-neutral-600 mt-1">
-                        <strong>Remark:</strong> {task.assignee_remarks}
-                      </p>
-                    )}
-                    <button
-                      onClick={() => {
-                        setEditingRemarkId(task.id);
-                        setRemarkInput(task.assignee_remarks || '');
-                      }}
-                      className="text-blue-600 hover:underline text-sm mt-2"
+                  <h3 className="font-medium text-neutral-900">{task.title}</h3>
+                  {task.description && (
+                    <p className="text-sm text-neutral-500 mt-1">{task.description}</p>
+                  )}
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm text-neutral-500">
+                      Due: {formatDate(task.due_date)}
+                    </span>
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleUpdateTaskStatus(task.id, e.target.value)}
+                      className={`text-xs px-2.5 py-1 rounded-full border-0 focus:ring-2 focus:ring-offset-2
+                        ${task.status === 'Completed'
+                          ? 'bg-green-100 text-green-800 focus:ring-green-500'
+                          : task.status === 'In Progress'
+                            ? 'bg-blue-100 text-blue-800 focus:ring-blue-500'
+                            : 'bg-yellow-100 text-yellow-800 focus:ring-yellow-500'
+                        }`}
                     >
-                      {task.assignee_remarks ? 'Edit Remark' : 'Add Remark'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="text-neutral-500 text-center py-4">No current tasks</p>
-        )}
+                      <option value="Pending">Pending</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+
+                  <div className="mt-3">
+                    {editingRemarkId === task.id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full border border-neutral-300 rounded-md p-2 text-sm"
+                          placeholder="Enter your remark"
+                          value={remarkInput}
+                          onChange={(e) => setRemarkInput(e.target.value)}
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleSaveRemark(task.id)}
+                            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingRemarkId(null);
+                              setRemarkInput('');
+                            }}
+                            className="text-sm text-neutral-600 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {task.assignee_remarks && (
+                          <p className="text-sm text-neutral-600 mt-1">
+                            <strong>Remark:</strong> {task.assignee_remarks}
+                          </p>
+                        )}
+                        <button
+                          onClick={() => {
+                            setEditingRemarkId(task.id);
+                            setRemarkInput(task.assignee_remarks || '');
+                          }}
+                          className="text-blue-600 hover:underline text-sm mt-2"
+                        >
+                          {task.assignee_remarks ? 'Edit Remark' : 'Add Remark'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-neutral-500 text-center py-4">No current tasks</p>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

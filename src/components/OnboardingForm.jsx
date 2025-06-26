@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 export default function OnboardingForm() {
   const [formData, setFormData] = useState({
+    employeeId: '',
     fullName: '',
     email: '',
     contactNumber: '',
@@ -27,6 +28,19 @@ export default function OnboardingForm() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ Set employeeId from sessionStorage
+ useEffect(() => {
+  const storedEmployee = sessionStorage.getItem('currentEmployee');
+  console.log('Read from sessionStorage:', storedEmployee); // <- Add this
+  if (storedEmployee) {
+    const parsed = JSON.parse(storedEmployee);
+    if (parsed?.id) {
+      setFormData(prev => ({ ...prev, employeeId: parsed.id }));
+    }
+  }
+}, []);
+
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -45,71 +59,51 @@ export default function OnboardingForm() {
 
   const validateForm = () => {
     const newErrors = {};
-    const requiredFields = ['fullName', 'email', 'contactNumber', 'designation', 'location', 'pinCode', 'bankAccountNumber', 'ifscCode'];
-    
-    requiredFields.forEach(field => {
-      if (!formData[field]) {
-        newErrors[field] = 'This field is required';
-      }
-    });
-
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
     }
-
-    if (formData.contactNumber && !/^\d{10}$/.test(formData.contactNumber)) {
-      newErrors.contactNumber = 'Please enter a valid 10-digit phone number';
-    }
-
-    if (formData.pinCode && !/^\d{6}$/.test(formData.pinCode)) {
-      newErrors.pinCode = 'Please enter a valid 6-digit PIN code';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    setIsSubmitting(true);
+  if (!validateForm()) return;
 
-    try {
-      const formDataToSend = new FormData();
-      
-      // Append all form fields to FormData
-      Object.keys(formData).forEach(key => {
-        if (formData[key] instanceof FileList) {
-          Array.from(formData[key]).forEach(file => {
-            formDataToSend.append(key, file);
-          });
-        } else if (formData[key] !== null) {
-          formDataToSend.append(key, formData[key]);
-        }
-      });
+  setIsSubmitting(true);
 
-      const response = await fetch('http://localhost:5000/api/employees/onboarding', {
-        method: 'POST',
-        body: formDataToSend
-      });
+  try {
+    const formDataToSend = new FormData();
 
-      if (!response.ok) {
-        throw new Error('Failed to submit form');
+    Object.entries(formData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach(file => {
+          formDataToSend.append(key, file);
+        });
+      } else if (value instanceof File) {
+        formDataToSend.append(key, value);
+      } else if (value !== null && value !== undefined) {
+        formDataToSend.append(key, value);
       }
+    });
+console.log('Submitting with employeeId:', formData.employeeId);
 
-      alert('Form submitted successfully!');
-      // Reset form or redirect as needed
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      alert('Failed to submit form. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const response = await fetch('https://the-aacharya.onrender.com/api/new/onboarding', {
+      method: 'POST',
+      body: formDataToSend
+    });
+
+    if (!response.ok) throw new Error('Failed to submit form');
+
+    alert('Form submitted successfully!');
+  } catch (error) {
+    console.error('Error submitting form:', error);
+    alert('Failed to submit form. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <motion.div

@@ -6,12 +6,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import HRLoginPage from './pages/HRLoginPage';
 import Dashboard from './pages/Dashboard';
-import PayrollPage from './pages/PayrollPage';
 import EmployeesPage from './pages/EmployeesPage';
 import AddNewEmployeePage from './pages/AddNewEmployeePage';
 import EmployeeLoginPage from './pages/EmployeeLoginPage';
 import EmployeeDashboard from './pages/EmployeeDashboard';
-import FAQsPage from './pages/FAQsPage';
 import TasksPage from './pages/TasksPage';
 import CalendarPage from './pages/CalendarPage';
 import PerformancePage from './pages/PerformancePage';
@@ -42,6 +40,23 @@ import SalesPunchApproval from './pages/employee/SalesPunchApproval';
 import MySales from './pages/employee/MySales';
 import MySessions from './pages/employee/MySessions';
 import DirectSession from './pages/employee/DirectSession';
+import OnboardingApprovals from  './pages/OnboardingApprovals';
+import HODattendance from './pages/employee/HODattendance';
+import HRPersonalDetails from './pages/HRPersonalDetails';
+import HRNotification from './pages/HRNotification';
+import HRMessages from './pages/HRMessages';
+import HRLeaveReq from './pages/HRLeaveReq';
+import HRCurrentTasks from './pages/HRCurrentTasks';
+import HRPreviousTasks from './pages/HRPreviousTasks';
+import HRUpcomingTasks from './pages/HRUpcomingTasks';
+import HRMyAssignees from './pages/HRMyAssignees';
+import HRMySupervisor from './pages/HRMySupervisor';
+import HRInterviews from './pages/HRInterviews';
+import HRMapping from './pages/HRMapping';
+import HRCompanyHierarchy from './pages/HRCompanyHierarchy';
+import HRAllEmployees from './pages/HRAllEmployees';
+import HRAssignTasks from './pages/HRAssignTasks';
+
 function App() {
   return (
     <Routes>
@@ -59,20 +74,34 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/faqs" element={<FAQsPage />} />
         <Route path="/performance" element={<PerformancePage />} />
-        <Route path="/payrolls" element={<PayrollPage />} />
         <Route path="/employees" element={<EmployeesPage />} />
         <Route path="/add-employee" element={<AddNewEmployeePage />} />
         <Route path="/hiring" element={<HiringPage />} />
         <Route path="/leave-requests" element={<LeaveRequestsPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/salary-management" element={<SalaryManagementPage />} />
+        <Route path="/onboarding-approvals" element={<OnboardingApprovals />} />
+        <Route path="/personal-details" element={<HRPersonalDetails />} />
+        <Route path="/notifications" element={<HRNotification />} />
+        <Route path="/messages" element={<HRMessages />} />
+        <Route path="/my-leave-requests" element={<HRLeaveReq />} />
+        <Route path="/my-current-tasks" element={<HRCurrentTasks />} />
+        <Route path="/my-previous-tasks" element={<HRPreviousTasks />} />
+        <Route path="/my-upcoming-tasks" element={<HRUpcomingTasks />} />
+        <Route path="/my-assignees" element={<HRMyAssignees />} />
+        <Route path="/my-supervisor" element={<HRMySupervisor />} />
+        <Route path="/my-interviews" element={<HRInterviews />} />
+        <Route path="/my-mapping" element={<HRMapping />} />
+        <Route path="/my-company-hierarchy" element={<HRCompanyHierarchy />} />
+        <Route path="/my-all-employees" element={<HRAllEmployees />} />
+        <Route path="/assign-tasks" element={<HRAssignTasks />} />
+
       </Route>
 
       {/* Employee Routes with Employee Layout */}
       <Route element={
-        <ProtectedRoute requiredRole="employee">
+        <ProtectedRoute requiredRole={'employee'}>
           <EmployeeLayout />
         </ProtectedRoute>
       }>
@@ -91,7 +120,7 @@ function App() {
         <Route path="/sales-punch-form" element={<EmployeeSalesPunchForm />} />
         <Route path="/all-employees" element={<AllEmployees />} />
         <Route path="/mapping" element={<Mapping />} />
-        <Route path="/employee-hierarchy" element={<EmployeeHierarchy />} />
+        <Route path="/company-hierarchy" element={<EmployeeHierarchy />} />
         <Route path="/employee-my-assignees" element={<EmployeeMyAssignees />} />
         <Route path="/employee-my-supervisor" element={<EmployeeMySupervisor />} />
         <Route path="/sales-report" element={<EmployeeSalesReport />} />
@@ -100,6 +129,8 @@ function App() {
         <Route path="/my-sales" element={<MySales />} />
         <Route path="/my-sessions" element={<MySessions />} />
         <Route path="/direct-session" element={<DirectSession />} />
+        <Route path="/hod-attendance" element={<HODattendance />} />
+
       </Route>
     </Routes>
   );

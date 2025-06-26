@@ -52,17 +52,16 @@ router.post(
 
       const insertQuery = `
         INSERT INTO sales_punches (
-          email, employee_id, name, contact_number, official_email, reporting_manager,
+          employee_id, name, contact_number, official_email, reporting_manager,
           course_module, course_duration, date_of_sale, customer_registered_number,
           customer_registered_email, total_package_value, scholarship_offered,
           final_course_value, down_payment_amount, payment_mode, payment_screenshot,
           total_emi_amount, monthly_emi, documents, vendor_name, student_name, class,
           school_name, address, time_slot, board
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const values = [
-        data.email || null,
         data.employeeId,
         data.name || null,
         data.contactNumber || null,

@@ -31,15 +31,15 @@ const upload = multer({
 });
 
 router.post('/', upload.single('resume'), async (req, res) => {
-  const { name, email, jobRole, position } = req.body;
+  const { name, email, jobRole, position, created_by } = req.body;
   const resumePath = req.file ? `uploads/resumes/${req.file.filename}` : null;
 
   try {
     const [result] = await db.execute(
       `INSERT INTO applications 
-      (candidate_name, email, job_role, position, resume_path, status, assign_to, send_to, meet_remarks, meet_link, meet_datetime)
-       VALUES (?, ?, ?, ?, ?, 'Pending', NULL, NULL, NULL, NULL, NULL)`,
-      [name, email, jobRole, position, resumePath]
+      (candidate_name, email, job_role, position, resume_path, status, assign_to, send_to, meet_remarks, meet_link, meet_datetime, created_by)
+       VALUES (?, ?, ?, ?, ?, 'Pending', NULL, NULL, NULL, NULL, NULL, ?)`,
+      [name, email, jobRole, position, resumePath, created_by]
     );
 
     res.status(201).json({
@@ -49,7 +49,8 @@ router.post('/', upload.single('resume'), async (req, res) => {
       job_role: jobRole,
       position,
       resume_path: resumePath,
-      status: 'Pending'
+      status: 'Pending',
+      created_by
     });
   } catch (err) {
     console.error(err);
@@ -68,9 +69,12 @@ router.get('/', async (req, res) => {
              e.surname as assignee_surname,
              e.role as assignee_role,
              e.email as assignee_email,
+             c.name as creator_name,
+             c.surname as creator_surname,
              a.is_approved
       FROM applications a
       LEFT JOIN employees_table e ON a.assign_to = e.id
+      LEFT JOIN employees_table c ON a.created_by = c.id
       ORDER BY a.created_at DESC
     `);
 
@@ -93,7 +97,8 @@ router.put('/:id', async (req, res) => {
       status, 
       is_approved,
       current_round,
-      round_approver
+      round_approver,
+      remarks
     } = req.body;
 
     console.log('Updating application:', {
@@ -101,7 +106,8 @@ router.put('/:id', async (req, res) => {
       status,
       is_approved,
       current_round,
-      round_approver
+      round_approver,
+      remarks
     });
 
     // First check if the application exists
@@ -114,9 +120,12 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Application not found' });
     }
 
-    // Get current history
-    const currentHistory = existingApp[0].history || '';
-    
+    const currentApp = existingApp[0];
+
+    // Get current history and remarks
+    const currentHistory = currentApp.history || '';
+    const currentRemarks = currentApp.remarks || '';
+
     // Create new history entry
     let newHistoryEntry = '';
     if (round_approver) {
@@ -127,10 +136,16 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Combine with existing history
+    // Combine with existing history and remarks
     const updatedHistory = currentHistory 
-      ? `${currentHistory}, ${newHistoryEntry}`
+      ? `${currentHistory}, ${newHistoryEntry}` 
       : newHistoryEntry;
+
+    const updatedRemarks = remarks
+      ? currentRemarks
+        ? `${currentRemarks}, ${remarks}`
+        : remarks
+      : currentRemarks; // If no new remarks sent, keep old ones
 
     // Update the application
     const [result] = await db.execute(
@@ -139,9 +154,10 @@ router.put('/:id', async (req, res) => {
            is_approved = ?,
            current_round = ?,
            history = ?,
+           remarks = ?,
            round${current_round}_approved_by = ?
        WHERE id = ?`,
-      [status, is_approved, current_round, updatedHistory, round_approver, id]
+      [status, is_approved, current_round, updatedHistory, updatedRemarks, round_approver, id]
     );
 
     if (result.affectedRows === 0) {
@@ -158,6 +174,7 @@ router.put('/:id', async (req, res) => {
               a.is_approved,
               a.current_round,
               a.history,
+              a.remarks,
               a.round1_approved_by,
               a.round2_approved_by,
               a.round3_approved_by,
@@ -182,13 +199,15 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+
 // Update application assignment
 router.put('/:id/assign', async (req, res) => {
   const { assign_to } = req.body;
   
   try {
+    // When re-assigning, we change the status to 'assigned'
     await db.execute(
-      'UPDATE applications SET assign_to = ? WHERE id = ?',
+      'UPDATE applications SET is_approved = "assigned", assign_to = ? WHERE id = ?',
       [assign_to, req.params.id]
     );
 
@@ -210,31 +229,53 @@ router.put('/:id/assign', async (req, res) => {
 });
 
 // Update meet information
+// Assuming Express route handler
 router.put('/:id/meet', async (req, res) => {
-  const { meet_remarks, meet_link, meet_datetime } = req.body;
-  
+  const { id } = req.params;
+  const { meet_remarks, meet_datetime, candidate_email } = req.body;
+
+  if (!meet_datetime) {
+    return res.status(400).json({ error: 'meet_datetime is required' });
+  }
+
   try {
-    await db.execute(
-      'UPDATE applications SET meet_remarks = ?, meet_link = ?, meet_datetime = ? WHERE id = ?',
-      [meet_remarks, meet_link, meet_datetime, req.params.id]
+    const response = await fetch('http://localhost:5000/api/create-interview-meet', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: req.headers.cookie // Pass session cookie for Google auth
+      },
+      body: JSON.stringify({
+        summary: 'Candidate Interview',
+        start: meet_datetime,
+        attendees: candidate_email ? [{ email: candidate_email }] : []
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('Google Meet API error:', data);
+      throw new Error(data.error || 'Failed to create Google Meet');
+    }
+
+    const meet_link = data.meetLink;
+
+    await db.query(
+      `UPDATE applications 
+       SET meet_remarks = ?, meet_datetime = ?, meet_link = ? 
+       WHERE id = ?`,
+      [meet_remarks, meet_datetime, meet_link, id]
     );
 
-    const [rows] = await db.execute(`
-      SELECT a.*, 
-             e.name as assignee_name, 
-             e.surname as assignee_surname,
-             e.role as assignee_role,
-             e.email as assignee_email
-      FROM applications a
-      LEFT JOIN employees_table e ON a.assign_to = e.id
-      WHERE a.id = ?
-    `, [req.params.id]);
-
-    res.json(rows[0]);
+    res.status(200).json({ success: true, meet_link });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error in PUT /applications/:id/meet:', err);
+    res.status(500).json({ error: 'Failed to update meet info' });
   }
 });
+
+
+
 
 // Update send to email
 router.put('/:id/send', async (req, res) => {
@@ -284,6 +325,49 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Error deleting application:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/:id/decision', async (req, res) => {
+  const { id } = req.params;
+  const { decision } = req.body;
+
+  try {
+    let query;
+    let params;
+
+    if (decision === 'select') {
+      query = 'UPDATE applications SET is_approved = ? WHERE id = ?';
+      params = ['selected', id];
+    } else if (decision === 'reject') {
+      query = 'UPDATE applications SET status = ? WHERE id = ?';
+      params = ['Rejected', id];
+    } else {
+      return res.status(400).json({ error: 'Invalid decision' });
+    }
+
+    const [result] = await db.execute(query, params);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Application not found' });
+    }
+
+    const [updatedApp] = await db.execute(`
+      SELECT a.*, 
+             e.name as assignee_name, 
+             e.surname as assignee_surname,
+             c.name as creator_name,
+             c.surname as creator_surname
+      FROM applications a
+      LEFT JOIN employees_table e ON a.assign_to = e.id
+      LEFT JOIN employees_table c ON a.created_by = c.id
+      WHERE a.id = ?
+    `, [id]);
+
+    res.json(updatedApp[0]);
+  } catch (err) {
+    console.error('Error handling application decision:', err);
+    res.status(500).json({ error: 'Failed to handle application decision' });
   }
 });
 

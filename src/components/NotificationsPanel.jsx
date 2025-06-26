@@ -14,7 +14,7 @@ export default function NotificationsPanel({ employeeId }) {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:5000/api/employees/${employeeId}/notifications`);
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/${employeeId}/notifications`);
       if (!response.ok) throw new Error('Failed to fetch notifications');
       const data = await response.json();
       setNotifications(data);
@@ -29,7 +29,7 @@ export default function NotificationsPanel({ employeeId }) {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/employees/notifications/${notificationId}`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/notifications/${notificationId}`, {
         method: 'PATCH'
       });
       if (!response.ok) throw new Error('Failed to mark notification as read');
@@ -90,6 +90,9 @@ export default function NotificationsPanel({ employeeId }) {
                   </h3>
                   <p className="text-neutral-600 mt-1">
                     {notification.message}
+                  </p>
+                  <p className="text-neutral-600 mt-1">
+                    {notification.meet_link}
                   </p>
                   <p className="text-sm text-neutral-400 mt-2">
                     {formatTime(notification.created_at)}

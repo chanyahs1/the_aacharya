@@ -47,7 +47,12 @@ export default function JobPostingModal({ isOpen, onClose, onSubmit }) {
       formPayload.append('position', formData.position);
       formPayload.append('resume', formData.resume);
 
-      const response = await fetch('http://localhost:5000/api/applications', {
+      const currentUser = JSON.parse(sessionStorage.getItem('currentHR'));
+      if (currentUser && currentUser.empID) {
+        formPayload.append('created_by', currentUser.empID);
+      }
+
+      const response = await fetch('https://the-aacharya.onrender.com/api/applications', {
         method: 'POST',
         body: formPayload
       });

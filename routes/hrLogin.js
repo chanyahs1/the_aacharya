@@ -1,11 +1,14 @@
+
 import express from 'express';
 import db from '../db.js';
+import jwt from 'jsonwebtoken';
 const router = express.Router();
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'; // Use env var in production
 
 // HR Login Route
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, latitude, longitude } = req.body;
 
   try {
     const [rows] = await db.execute(
@@ -19,28 +22,80 @@ router.post('/login', async (req, res) => {
 
     const hr = rows[0];
 
-    // Update last login
+    // Update lastLogin, loginLatitude, loginLongitude
     await db.execute(
-      'UPDATE employees_table SET lastLogin = NOW(), lastLogout = NULL, isActive = true WHERE id = ?',
-      [hr.id]
+      `UPDATE employees_table 
+       SET lastLogin = NOW(), lastLogout = NULL, isActive = true, 
+           loginLatitude = ?, loginLongitude = ? 
+       WHERE id = ?`,
+      [latitude, longitude, hr.id]
     );
 
-    res.json({ ...hr, isActive: true });
+    // Insert into login_logs
+    await db.execute(
+      `INSERT INTO login_logs (empID, login_time, login_location) 
+       VALUES (?, NOW(), ?)`,
+      [hr.empID, `${latitude}, ${longitude}`]
+    );
+
+    // Create JWT payload
+    const payload = {
+      id: hr.id,
+      username: hr.username,
+      department: hr.department,
+      name: hr.name,
+      role: "hr"
+    };
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '3h' });
+
+    // Remove password from response
+    const { password: _, ...hrWithoutPassword } = hr;
+
+    res.json({
+      ...hrWithoutPassword,
+      isActive: true,
+      token
+    });
   } catch (err) {
     console.error('HR login error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
+
+// HR Logout Route
 // HR Logout Route
 router.put('/logout/:id', async (req, res) => {
   const { id } = req.params;
+  const { logoutLatitude, logoutLongitude } = req.body;
 
   try {
-    const [result] = await db.execute(
-      'UPDATE employees_table SET lastLogout = NOW(), isActive = false WHERE id = ?',
+    // ✅ Update employee table with logout details
+    await db.execute(
+      `UPDATE employees_table 
+       SET lastLogout = NOW(), 
+           isActive = false, 
+           logoutLatitude = ?, 
+           logoutLongitude = ? 
+       WHERE id = ?`,
+      [logoutLatitude, logoutLongitude, id]
+    );
+
+    // ✅ Optional: Insert into login_logs
+    const [empRows] = await db.execute(
+      'SELECT empID FROM employees_table WHERE id = ?',
       [id]
     );
+    const empID = empRows[0]?.empID;
+
+    if (empID) {
+      await db.execute(
+        `INSERT INTO login_logs (empID, logout_time, logout_location) 
+         VALUES (?, NOW(), ?)`,
+        [empID, `${logoutLatitude}, ${logoutLongitude}`]
+      );
+    }
 
     res.json({ message: 'Logout successful' });
   } catch (err) {
@@ -48,6 +103,7 @@ router.put('/logout/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 
 export default router;

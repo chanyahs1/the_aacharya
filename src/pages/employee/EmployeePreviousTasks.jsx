@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { CheckCircle } from 'lucide-react';
 
 function formatDate(dateString) {
   const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -25,7 +27,7 @@ export default function EmployeeCompletedTasksPage() {
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/employees/tasks/${taskId}`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/tasks/${taskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -50,16 +52,16 @@ export default function EmployeeCompletedTasksPage() {
 
     try {
       setError(null);
-      console.log('Fetching tasks for employee:', currentEmployee?.id);
+      // console.log('Fetching tasks for employee:', currentEmployee?.id);
 
-      const response = await fetch(`http://localhost:5000/api/employees/${currentEmployee?.id}/tasks`);
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/${currentEmployee?.id}/tasks`);
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Failed to fetch tasks: ${response.status} ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('Tasks fetched successfully');
+      // console.log('Tasks fetched successfully');
 
       const sortedTasks = data.sort((a, b) => {
         if (a.status === 'Pending' && b.status !== 'Pending') return -1;
@@ -97,44 +99,66 @@ export default function EmployeeCompletedTasksPage() {
   };
 
   return (
-  <div className="bg-white rounded-lg shadow-card p-6">
-            <h2 className="text-lg font-semibold text-neutral-800 mb-4">Previous Tasks</h2>
-            <div className="space-y-4">
-              {isInitialLoading ? (
-                <p className="text-neutral-500 text-center py-4">Loading tasks...</p>
-              ) : tasks.previous.length > 0 ? (
-                tasks.previous.map((task) => (
-                  <div 
-                    key={task.id}
-                    className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-                  >
-                    <h3 className="font-medium text-neutral-900">{task.title}</h3>
-                    {task.description && (
-                      <p className="text-sm text-neutral-500 mt-1">{task.description}</p>
-                    )}
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-sm text-neutral-500">
-                        Due: {formatDate(task.due_date)}
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bg-gray-50 min-h-screen p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white p-6 rounded-xl shadow-md flex items-center gap-4 mb-6">
+          <div className="bg-emerald-100 p-3 rounded-full">
+            <CheckCircle className="w-9 h-9 text-emerald-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Previous Tasks</h1>
+            <p className="text-gray-500 flex items-center gap-2 mt-1">
+              {currentEmployee?.full_name || currentEmployee?.name} | {currentEmployee?.empID} | {currentEmployee?.department}
+            </p>
+          </div>
+        </div>
+        {/* Tasks Card */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-lg font-semibold text-neutral-800 mb-4">Previous Tasks</h2>
+          <div className="space-y-4">
+            {isInitialLoading ? (
+              <p className="text-neutral-500 text-center py-4">Loading tasks...</p>
+            ) : tasks.previous.length > 0 ? (
+              tasks.previous.map((task) => (
+                <div
+                  key={task.id}
+                  className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
+                >
+                  <h3 className="font-medium text-neutral-900">{task.title}</h3>
+                  {task.description && (
+                    <p className="text-sm text-neutral-500 mt-1">{task.description}</p>
+                  )}
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="text-sm text-neutral-500">
+                      Due: {formatDate(task.due_date)}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-xs px-2.5 py-1 rounded-full
+                        ${task.priority === 'High' ? 'bg-red-100 text-red-800' :
+                          task.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'}
+                      `}>
+                        {task.priority}
                       </span>
-                      <div className="flex items-center space-x-2">
-                        <span className={`text-xs px-2.5 py-1 rounded-full
-                          ${task.priority === 'High' ? 'bg-error-100 text-error-800' :
-                            task.priority === 'Medium' ? 'bg-warning-100 text-warning-800' :
-                            'bg-success-100 text-success-800'}
-                        `}>
-                          {task.priority}
-                        </span>
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-success-100 text-success-800">
-                          Completed
-                        </span>
-                      </div>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-800">
+                        Completed
+                      </span>
                     </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-neutral-500 text-center py-4">No completed tasks</p>
-              )}
-            </div>
+                  {task.assignee_remarks && (
+                    <p className="text-sm text-neutral-600 mt-2">
+                      <strong>Remark:</strong> {task.assignee_remarks}
+                    </p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-neutral-500 text-center py-4">No completed tasks</p>
+            )}
           </div>
+        </div>
+      </div>
+    </motion.div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { PlusIcon, FunnelIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ClipboardDocumentListIcon, CheckCircleIcon, XCircleIcon, TrophyIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import Button from '../components/ui/Button';
 import JobPostingModal from '../components/JobPostingModal';
 import CandidateApplicationModal from '../components/CandidateApplicationModal';
@@ -14,30 +14,29 @@ export default function HiringPage() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [applications, setApplications] = useState([]);
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [filters, setFilters] = useState({
+    candidate: '',
+    jobRole: '',
+    assignedTo: '',
+    createdBy: '',
+  });
 
-  // Fetch applications when component mounts
   useEffect(() => {
+    const user = JSON.parse(sessionStorage.getItem('currentHR'));
+    if(user) {
+        setCurrentUser(user);
+    }
     fetchApplications();
   }, []);
 
   const fetchApplications = async () => {
     try {
-      console.log('Fetching applications...');
-      const response = await fetch('http://localhost:5000/api/applications', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
+      const response = await fetch('https://the-aacharya.onrender.com/api/applications');
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error(`Failed to fetch applications: ${response.status} ${errorText}`);
+        throw new Error(`Failed to fetch applications: ${response.status}`);
       }
-
       const data = await response.json();
-      console.log('Fetched applications:', data);
       setApplications(data);
     } catch (error) {
       console.error('Error fetching applications:', error);
@@ -46,36 +45,22 @@ export default function HiringPage() {
   };
 
   const handleJobPost = async (data) => {
-    try {
-      // The data is already submitted to the backend in the modal
-      // Just update the local state with the new application
-      setApplications(prev => [data, ...prev]);
-      setIsJobPostingModalOpen(false);
-    } catch (error) {
-      console.error('Error handling job post:', error);
-      alert('Error handling job post: ' + error.message);
-    }
+    setApplications(prev => [data, ...prev]);
+    setIsJobPostingModalOpen(false);
   };
 
   const handleViewApplication = (application) => {
-    // You can implement a detailed view modal here
     console.log('Viewing application:', application);
   };
 
   const handleDeleteApplication = async (applicationToDelete) => {
     if (window.confirm('Are you sure you want to delete this application?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/applications/${applicationToDelete.id}`, {
+        const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${applicationToDelete.id}`, {
           method: 'DELETE'
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete application');
-        }
-
-        setApplications(prev => 
-          prev.filter(app => app.id !== applicationToDelete.id)
-        );
+        if (!response.ok) throw new Error('Failed to delete application');
+        setApplications(prev => prev.filter(app => app.id !== applicationToDelete.id));
       } catch (error) {
         console.error('Error deleting application:', error);
         alert('Error deleting application: ' + error.message);
@@ -85,23 +70,15 @@ export default function HiringPage() {
 
   const handleStatusChange = async (application, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/${application.id}/status`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${application.id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
-
+      if (!response.ok) throw new Error('Failed to update status');
       setApplications(prev =>
         prev.map(app =>
-          app.id === application.id
-            ? { ...app, status: newStatus }
-            : app
+          app.id === application.id ? { ...app, status: newStatus } : app
         )
       );
     } catch (error) {
@@ -112,29 +89,19 @@ export default function HiringPage() {
 
   const handleAssignChange = async (application, employeeId) => {
     try {
-      // First update the assignment
-      const response = await fetch(`http://localhost:5000/api/applications/${application.id}/assign`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${application.id}/assign`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           assign_to: employeeId,
           previous_assignee: application.assign_to
         })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update assignment');
-      }
-
-      // Get the updated application data
+      if (!response.ok) throw new Error('Failed to update assignment');
       const updatedApplication = await response.json();
 
-      // Only create a message if there's a valid employee ID
       if (employeeId) {
         try {
-          // Log the message data for debugging
           const messageData = {
             employee_id: employeeId,
             application_id: application.id,
@@ -151,38 +118,23 @@ export default function HiringPage() {
               previous_assignee: application.assign_to
             }
           };
-          console.log('Attempting to create message with data:', messageData);
-
-          // Create a message for the new employee
-          const messageResponse = await fetch('http://localhost:5000/api/messages', {
+          const messageResponse = await fetch('https://the-aacharya.onrender.com/api/messages', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(messageData)
           });
-
           if (!messageResponse.ok) {
             const errorData = await messageResponse.json().catch(() => ({}));
-            console.error('Message creation failed with status:', messageResponse.status);
-            console.error('Error response:', errorData);
             throw new Error(errorData.message || `Failed to create message (Status: ${messageResponse.status})`);
           }
-
-          const messageResult = await messageResponse.json();
-          console.log('Message created successfully:', messageResult);
         } catch (messageError) {
           console.error('Error creating message:', messageError);
-          // Continue with the assignment update even if message creation fails
         }
       }
 
-      // Update the applications list with the complete updated application data
       setApplications(prev =>
         prev.map(app =>
-          app.id === application.id
-            ? updatedApplication
-            : app
+          app.id === application.id ? updatedApplication : app
         )
       );
     } catch (error) {
@@ -197,63 +149,32 @@ export default function HiringPage() {
       let remark = '';
 
       switch (action) {
-        case 'approve':
-          newStatus = 'Approved';
-          break;
-        case 'reject':
-          newStatus = 'Rejected';
-          break;
-        case 'remark':
-          remark = prompt('Enter your remark:');
-          if (!remark) return;
-          break;
-        default:
-          return;
+        case 'approve': newStatus = 'Approved'; break;
+        case 'reject': newStatus = 'Rejected'; break;
+        case 'remark': remark = prompt('Enter your remark:'); if (!remark) return; break;
+        default: return;
       }
 
-      // Update application status
       if (newStatus) {
-        const response = await fetch(`http://localhost:5000/api/applications/${message.application_id}/status`, {
+        const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${message.application_id}/status`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            status: newStatus,
-            remark: remark
-          })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, remark })
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to update application status');
-        }
-
-        // Update the applications list
+        if (!response.ok) throw new Error('Failed to update application status');
         setApplications(prev =>
           prev.map(app =>
-            app.id === message.application_id
-              ? { ...app, status: newStatus }
-              : app
+            app.id === message.application_id ? { ...app, status: newStatus } : app
           )
         );
       }
 
-      // Update message status
-      const messageResponse = await fetch(`http://localhost:5000/api/messages/${message.id}/status`, {
+      const messageResponse = await fetch(`https://the-aacharya.onrender.com/api/messages/${message.id}/status`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          status: 'completed',
-          action: action,
-          remark: remark
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed', action, remark })
       });
-
-      if (!messageResponse.ok) {
-        throw new Error('Failed to update message status');
-      }
+      if (!messageResponse.ok) throw new Error('Failed to update message status');
 
       setIsMessageModalOpen(false);
       alert(action === 'remark' ? 'Remark added successfully' : `Application ${newStatus.toLowerCase()} successfully`);
@@ -265,27 +186,16 @@ export default function HiringPage() {
 
   const handleSendTo = async (application, email, name) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/applications/${application.id}/send`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${application.id}/send`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          send_to: email,
-          employee_name: name
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ send_to: email, employee_name: name })
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update send to email');
-      }
-
+      if (!response.ok) throw new Error('Failed to update send to email');
       const updatedApplication = await response.json();
       setApplications(prev =>
         prev.map(app =>
-          app.id === application.id
-            ? updatedApplication
-            : app
+          app.id === application.id ? updatedApplication : app
         )
       );
     } catch (error) {
@@ -295,82 +205,210 @@ export default function HiringPage() {
   };
 
   const handleMeetInfoUpdate = async (applicationId, meetInfo) => {
+  try {
+    let updatedMeetInfo = { ...meetInfo };
+
+    if (!meetInfo.meet_link && meetInfo.meet_datetime && meetInfo.candidate_email) {
+      const meetRes = await fetch('https://the-aacharya.onrender.com/api/create-interview-meet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: meetInfo.meet_datetime,
+          attendees: [meetInfo.candidate_email]
+        })
+      });
+
+      const meetData = await meetRes.json();
+      if (!meetRes.ok) throw new Error(meetData.error || 'Failed to generate Meet');
+
+      updatedMeetInfo.meet_link = meetData.meetLink;
+    }
+
+    const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${applicationId}/meet`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+        credentials: "include", // ✅ Needed for cookie/session
+
+      body: JSON.stringify(updatedMeetInfo)
+    });
+
+    if (!response.ok) throw new Error('Failed to update meet info');
+    alert("Meet info successfully added!");
+
+    const updatedApplication = await response.json();
+    setApplications(prev =>
+      prev.map(app =>
+        app.id === applicationId ? { ...app, ...updatedApplication } : app
+      )
+    );
+
+    return updatedApplication;
+  } catch (error) {
+    console.error('Error updating meet info:', error);
+    alert('Error updating meet info: ' + error.message);
+    throw error;
+  }
+};
+
+
+
+  const handleApplicationDecision = async (application, decision) => {
     try {
-      // First update the meet info
-      const response = await fetch(`http://localhost:5000/api/applications/${applicationId}/meet`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/applications/${application.id}/decision`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(meetInfo)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update meet information');
+        throw new Error(`Failed to update decision: ${response.status}`);
       }
-
-      // Get the updated application data from the response
+      
       const updatedApplication = await response.json();
 
-      // Update the applications list with the new data
       setApplications(prev =>
-        prev.map(app =>
-          app.id === applicationId
-            ? { ...app, ...updatedApplication }
-            : app
-        )
+        prev.map(app => (app.id === application.id ? updatedApplication : app))
       );
-
-      return updatedApplication;
     } catch (error) {
-      console.error('Error updating meet information:', error);
-      alert('Error updating meet information: ' + error.message);
-      throw error; // Re-throw the error to be handled by the component
+      console.error('Error making decision:', error);
+      alert('Error making decision: ' + error.message);
     }
   };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const filteredApplications = applications.filter(app => {
+    const candidateMatch = app.candidate_name.toLowerCase().includes(filters.candidate.toLowerCase());
+    const jobRoleMatch = app.job_role.toLowerCase().includes(filters.jobRole.toLowerCase());
+    
+    const assigneeFullName = `${app.assignee_name || ''} ${app.assignee_surname || ''}`.toLowerCase();
+    const assignedToMatch = !filters.assignedTo || assigneeFullName.includes(filters.assignedTo.toLowerCase());
+
+    const creatorFullName = `${app.creator_name || ''} ${app.creator_surname || ''}`.toLowerCase();
+    const createdByMatch = !filters.createdBy || creatorFullName.includes(filters.createdBy.toLowerCase());
+
+    return candidateMatch && jobRoleMatch && assignedToMatch && createdByMatch;
+  });
+
+  const approvedCount = filteredApplications.filter(app => app.is_approved === 'yes').length;
+  const rejectedCount = filteredApplications.filter(app => app.status === 'Rejected').length;
+  const selectedCount = filteredApplications.filter(app => app.is_approved === 'selected').length;
+  const inProgressCount = filteredApplications.length - approvedCount - rejectedCount - selectedCount;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5 }}
-      className="max-w-7xl mx-auto"
+      className="min-h-screen bg-gradient-to-br p-6"
     >
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-neutral-800">Hiring</h1>
-          <p className="text-neutral-600 mt-1">Submit your application</p>
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Application Tracking</h1>
+            <p className="text-gray-600 mt-1">Manage and track job applications.</p>
+          </div>
+          
+          <div className="flex gap-3">
+            <Button 
+              variant="primary" 
+              icon={<PlusIcon className="w-5 h-5" />}
+              onClick={() => setIsJobPostingModalOpen(true)}
+            >
+              Add New Application
+            </Button>
+          </div>
         </div>
-        
-        <div className="flex gap-3">
-          <Button variant="outline" icon={<FunnelIcon className="w-5 h-5" />}>
-            Filter
-          </Button>
-          <Button 
-            variant="primary" 
-            icon={<PlusIcon className="w-5 h-5" />}
-            onClick={() => setIsJobPostingModalOpen(true)}
-          >
-            Submit Application
-          </Button>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter Applications</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input type="text" name="candidate" placeholder="By candidate..." value={filters.candidate} onChange={handleFilterChange} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input type="text" name="jobRole" placeholder="By job role..." value={filters.jobRole} onChange={handleFilterChange} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input type="text" name="assignedTo" placeholder="By assignee..." value={filters.assignedTo} onChange={handleFilterChange} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="relative">
+                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <input type="text" name="createdBy" placeholder="By creator..." value={filters.createdBy} onChange={handleFilterChange} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500" />
+                </div>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <ClipboardDocumentListIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-gray-900">{inProgressCount}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircleIcon className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-2xl font-bold text-gray-900">{approvedCount}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <XCircleIcon className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold text-gray-900">{rejectedCount}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <TrophyIcon className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Selected</p>
+                <p className="text-2xl font-bold text-gray-900">{selectedCount}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <ApplicationsTable
+            applications={filteredApplications}
+            currentUser={currentUser}
+            onView={handleViewApplication}
+            onDelete={handleDeleteApplication}
+            onStatusChange={handleStatusChange}
+            onAssignChange={handleAssignChange}
+            onSendTo={handleSendTo}
+            onMeetInfoUpdate={handleMeetInfoUpdate}
+            onApplicationDecision={handleApplicationDecision}
+          />
         </div>
       </div>
 
-      {/* Applications Table */}
-      <div className="mt-6">
-        
-        <ApplicationsTable
-          applications={applications}
-          onView={handleViewApplication}
-          onDelete={handleDeleteApplication}
-          onStatusChange={handleStatusChange}
-          onAssignChange={handleAssignChange}
-          onSendTo={handleSendTo}
-          onMeetInfoUpdate={handleMeetInfoUpdate}
-        />
-      </div>
-
-      {/* Message Modal */}
       <MessageModal
         isOpen={isMessageModalOpen}
         onClose={() => setIsMessageModalOpen(false)}
@@ -380,14 +418,12 @@ export default function HiringPage() {
         onRemark={(message) => handleMessageAction(message, 'remark')}
       />
 
-      {/* Job Posting Modal */}
       <JobPostingModal
         isOpen={isJobPostingModalOpen}
         onClose={() => setIsJobPostingModalOpen(false)}
         onSubmit={handleJobPost}
       />
 
-      {/* Candidate Application Modal */}
       <CandidateApplicationModal
         isOpen={isApplicationModalOpen}
         onClose={() => setIsApplicationModalOpen(false)}

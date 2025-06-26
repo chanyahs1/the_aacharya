@@ -13,7 +13,7 @@ export default function NotificationBell({ employeeId }) {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/employees/${employeeId}/notifications`);
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/${employeeId}/notifications`);
       if (!response.ok) throw new Error('Failed to fetch notifications');
       const data = await response.json();
       setNotifications(data);
@@ -25,7 +25,7 @@ export default function NotificationBell({ employeeId }) {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/employees/notifications/${notificationId}`, {
+      const response = await fetch(`https://the-aacharya.onrender.com/api/employees/notifications/${notificationId}`, {
         method: 'PATCH'
       });
       if (!response.ok) throw new Error('Failed to mark notification as read');
@@ -71,6 +71,10 @@ export default function NotificationBell({ employeeId }) {
                   onClick={() => markAsRead(notification.id)}
                 >
                   <h4 className="text-sm font-medium text-neutral-900">{notification.title}</h4>
+                  {notification.description && (
+                    <p className="text-sm text-neutral-600 mt-1">{notification.description}</p>
+                  )}
+                  <p className="text-xs text-neutral-400 mt-1">{formatTime(notification.meet_link)}</p>
                   <p className="text-sm text-neutral-600 mt-1">{notification.message}</p>
                   <p className="text-xs text-neutral-400 mt-1">{formatTime(notification.created_at)}</p>
                 </div>

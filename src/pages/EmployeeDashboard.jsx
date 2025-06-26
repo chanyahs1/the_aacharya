@@ -1,192 +1,372 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useState, useEffect, useRef } from "react";
+import { motion, animate } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { DocumentTextIcon } from "@heroicons/react/24/outline";
+import {
+  TrendingUp,
+  CircleDollarSign,
+  Calendar,
+  CheckCircle,
+  RefreshCw,
+  XCircle,
+  FilePlus,
+  User,
+  Badge,
+  Bell,
+  Users,
+  MessageCircle
+} from "lucide-react";
+
+const StatCard = ({ title, value, icon, color, prefix = "" }) => {
+    const countRef = useRef(null);
+
+    useEffect(() => {
+        const node = countRef.current;
+        if (!node) return;
+
+        const controls = animate(0, value || 0, {
+            duration: 1.2,
+            ease: "easeOut",
+            onUpdate(latest) {
+                node.textContent = `${prefix}${Math.round(latest).toLocaleString("en-IN")}`;
+            }
+        });
+
+        return () => controls.stop();
+    }, [value, prefix]);
+
+    return (
+      <div
+        className={`bg-white p-5 rounded-xl shadow-md transition-all hover:shadow-lg hover:-translate-y-1 border-l-4 ${color}`}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <p ref={countRef} className="text-3xl font-bold text-gray-800 mt-1">
+              {prefix}0
+            </p>
+          </div>
+          <div className="p-3 bg-gray-100 rounded-full">{icon}</div>
+        </div>
+      </div>
+    );
+};
+
+const ActionButton = ({ onClick, icon, text }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center justify-center w-full sm:w-auto gap-2 px-5 py-3 bg-primary-600 text-white font-semibold rounded-lg shadow-sm hover:bg-primary-700 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+  >
+    {icon}
+    {text}
+  </button>
+);
+
+const QuickLink = ({ title, description, icon, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full text-left bg-white p-4 rounded-xl shadow-md transition-all hover:shadow-lg hover:-translate-y-1 border-l-4 border-transparent hover:border-blue-500"
+  >
+    <div className="flex items-center gap-4">
+      <div className="p-3 bg-gray-100 rounded-full">{icon}</div>
+      <div>
+        <h3 className="font-semibold text-gray-800">{title}</h3>
+        {description && <p className="text-sm text-gray-500">{description}</p>}
+      </div>
+    </div>
+  </button>
+);
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState({
-    current: [],
-    upcoming: [],
-    previous: [],
-  });
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [salesStats, setSalesStats] = useState({ count: 0, revenue: 0 });
+  const [sessionStats, setSessionStats] = useState({
+    upcoming: 0,
+    purchased: 0,
+    followUp: 0,
+    rejected: 0,
+    refunded: 0,
+  });
+
   const currentEmployee = JSON.parse(
     localStorage.getItem("currentEmployee") ||
       sessionStorage.getItem("currentEmployee")
   );
 
-  // Function to handle task status updates
-  const handleUpdateTaskStatus = async (taskId, newStatus) => {
-    try {
-      const response = await fetch(
-        `http://localhost:5000/api/employees/tasks/${taskId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ status: newStatus }),
+  const hasFetched = useRef(false); // prevent repeated fetching
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (currentEmployee?.department !== "Sales" || hasFetched.current) return;
+      hasFetched.current = true;
+
+      try {
+        const [salesRes, sessionRes] = await Promise.all([
+          fetch(`https://the-aacharya.onrender.com/api/employees/${currentEmployee.empID}/sales-stats`),
+          fetch(`https://the-aacharya.onrender.com/api/employees/${currentEmployee.empID}/session-stats`)
+        ]);
+
+        if (!salesRes.ok || !sessionRes.ok) {
+          throw new Error("Failed to fetch stats");
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to update task status");
+        const salesData = await salesRes.json();
+        const sessionData = await sessionRes.json();
+
+        setSalesStats({
+          count: salesData.salesCount || 0,
+          revenue: salesData.totalRevenue || 0,
+        });
+
+        setSessionStats(sessionData);
+      } catch (err) {
+        console.error("Error fetching stats:", err);
+        setError("Failed to load stats.");
       }
+    };
 
-      // Force fetch tasks to update the UI
-      await fetchTasks(true);
-    } catch (error) {
-      console.error("Error updating task status:", error);
-      setError("Failed to update task status. Please try again.");
+    if (currentEmployee) {
+      fetchStats();
     }
-  };
-
-  // Function to fetch tasks with debouncing
-  const fetchTasks = async (force = false) => {
-    const now = Date.now();
-    // Don't fetch if less than 5 seconds have passed since last fetch, unless forced
-    if (!force && now - lastFetchTime < 5000) {
-      return;
-    }
-
-    try {
-      setError(null);
-      console.log("Fetching tasks for employee:", currentEmployee.id);
-
-      const response = await fetch(
-        `http://localhost:5000/api/employees/${currentEmployee.id}/tasks`
-      );
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error response:", errorText);
-        throw new Error(
-          `Failed to fetch tasks: ${response.status} ${errorText}`
-        );
-      }
-
-      const data = await response.json();
-      console.log("Tasks fetched successfully");
-
-      // Sort tasks by due date and status
-      const sortedTasks = data.sort((a, b) => {
-        // First sort by status (Pending first)
-        if (a.status === "Pending" && b.status !== "Pending") return -1;
-        if (a.status !== "Pending" && b.status === "Pending") return 1;
-        // Then sort by due date
-        return new Date(a.due_date) - new Date(b.due_date);
-      });
-
-      // Separate tasks into current, upcoming, and previous
-      const currentDate = new Date();
-      const currentTasks = sortedTasks.filter(
-        (task) =>
-          // Show tasks that are either:
-          // 1. Due today or overdue AND not completed
-          // 2. In Progress (regardless of due date)
-          ((new Date(task.due_date) <= currentDate &&
-            task.status !== "Completed") ||
-            task.status === "In Progress") &&
-          task.status !== "Completed"
-      );
-
-      const upcomingTasks = sortedTasks.filter(
-        (task) =>
-          // Show tasks that are:
-          // 1. Due in the future
-          // 2. Not in progress or completed
-          new Date(task.due_date) > currentDate &&
-          task.status !== "In Progress" &&
-          task.status !== "Completed"
-      );
-
-      const previousTasks = sortedTasks.filter(
-        (task) =>
-          // Show all completed tasks
-          task.status === "Completed"
-      );
-
-      setTasks({
-        current: currentTasks,
-        upcoming: upcomingTasks,
-        previous: previousTasks,
-      });
-      setLastFetchTime(now);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setError(error.message);
-      setTasks({ current: [], upcoming: [], previous: [] });
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
+  }, [currentEmployee]);
 
   useEffect(() => {
     if (!currentEmployee) {
       navigate("/employee-login");
-      return;
     }
-
-    console.log("Current employee in dashboard:", currentEmployee);
-
-    // Initial fetch
-    fetchTasks(true);
-
-    // Remove periodic fetch
   }, [currentEmployee, navigate]);
+
+  if (!currentEmployee) {
+    return null; // or a loading spinner
+  }
+
+  const quickLinks = [
+    {
+      title: "My Profile",
+      description: "View personal details",
+      icon: <User size={24} className="text-blue-500" />,
+      path: "/employee-personal-details",
+      show: true,
+    },
+    {
+      title: "My Calendar",
+      description: "Check your schedule",
+      icon: <Calendar size={24} className="text-green-500" />,
+      path: "/employee-calendar",
+      show: true,
+    },
+    {
+      title: "My Tasks",
+      description: "View assigned tasks",
+      icon: <CheckCircle size={24} className="text-purple-500" />,
+      path: "/employee-current-tasks",
+      show: true,
+    },
+    {
+      title: "Leave Request",
+      description: "Apply for time off",
+      icon: <FilePlus size={24} className="text-orange-500" />,
+      path: "/employee-leave-request",
+      show: true,
+    },
+    {
+      title: "Messages",
+      description: "Check your messages",
+      icon: <MessageCircle size={24} className="text-yellow-500" />,
+      path: "/employee-messages",
+      show: true,
+    },
+    {
+      title: "Notifications",
+      description: "Check your notifications",
+      icon: <Bell size={24} className="text-red-500" />,
+      path: "/employee-notifications",
+      show: true,
+    },
+    {
+      title: "My Sales",
+      description: "Track your sales performance",
+      icon: <TrendingUp size={24} className="text-indigo-500" />,
+      path: "/my-sales",
+      show: currentEmployee.department === "Sales" && (currentEmployee.role === "Intern" || currentEmployee.role === "Executive" || currentEmployee.role === "Associate" || currentEmployee.role === "Trainee" || currentEmployee.role === 'Manager'),
+    },
+     {
+      title: "Team Sales",
+      description: "Track your sales performance",
+      icon: <TrendingUp size={24} className="text-indigo-500" />,
+      path: "/sales-report",
+      show: currentEmployee.department === "Sales" && (currentEmployee.role === "Manager" || currentEmployee.role === "Senior Manager" || currentEmployee.role === "Area General Manager" || currentEmployee.role === "Head of Department"),
+    },
+    {
+      title: "My Sessions",
+      description: "Manage your direct sessions",
+      icon: <Users size={24} className="text-pink-500" />,
+      path: "/my-sessions",
+      show: currentEmployee.department === "Sales" && (currentEmployee.role === "Intern" || currentEmployee.role === "Executive" || currentEmployee.role === "Associate" || currentEmployee.role === "Trainee" || currentEmployee.role === 'Manager'),
+    },
+    {
+      title: "Team Sessions",
+      description: "Manage your direct sessions",
+      icon: <Users size={24} className="text-pink-500" />,
+      path: "/direct-session",
+      show: currentEmployee.department === "Sales" && (currentEmployee.role === "Manager" || currentEmployee.role === "Senior Manager" || currentEmployee.role === "Area General Manager" || currentEmployee.role === "Head of Department"),
+    },
+  ].filter((link) => link.show);
+
+  const salesStatCards = [
+    {
+      title: "Sales Count",
+      value: salesStats.count,
+      icon: <TrendingUp size={28} className="text-blue-500" />,
+      color: "border-blue-500",
+    },
+    {
+      title: "Sales Revenue",
+      value: salesStats.revenue,
+      prefix: "₹",
+      icon: <CircleDollarSign size={28} className="text-green-500" />,
+      color: "border-green-500",
+    },
+  ];
+
+  const sessionStatCards = [
+    {
+      title: "Upcoming Sessions",
+      value: sessionStats.upcoming,
+      icon: <Calendar size={28} className="text-sky-500" />,
+      color: "border-sky-500",
+    },
+    {
+      title: "Purchased Sessions",
+      value: sessionStats.purchased,
+      icon: <CheckCircle size={28} className="text-emerald-500" />,
+      color: "border-emerald-500",
+    },
+    {
+      title: "Follow-Up Sessions",
+      value: sessionStats.followUp,
+      icon: <RefreshCw size={28} className="text-purple-500" />,
+      color: "border-purple-500",
+    },
+    {
+      title: "Rejected Sessions",
+      value: sessionStats.rejected,
+      icon: <XCircle size={28} className="text-red-500" />,
+      color: "border-red-500",
+    },
+    {
+      title: "Refunded Sessions",
+      value: sessionStats.refunded,
+      icon: <XCircle size={28} className="text-yellow-500" />,
+      color: "border-yellow-500",
+    },
+  ];
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="h-full"
+      className="bg-gray-50 min-h-screen p-4 sm:p-6"
     >
-      {error && (
-        <div className="mb-6 p-4 bg-error-50 border border-error-200 rounded-lg">
-          <p className="text-error-800">{error}</p>
-        </div>
-      )}
+      <div className="max-w-7xl mx-auto space-y-6">
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-200 rounded-lg">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
 
-      {/* Add Employee Name Header with Onboarding Form Button */}
-      <div className=" flex items-start justify-center gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-neutral-800">
-            Welcome, {currentEmployee.name} {currentEmployee.surname}
-          </h1>
-          <p>{currentEmployee.empID}</p>
-          <p className="mt-2 text-neutral-600">
-            {currentEmployee.department} {currentEmployee.role}
-          </p>
-          <p>{currentEmployee.email}</p>
+        {/* Header */}
+        <div className="bg-white p-6 rounded-xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-100 p-3 rounded-full">
+              <User className="w-9 h-9 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">
+                Welcome, {currentEmployee.name} {currentEmployee.surname}!
+              </h1>
+              <p className="text-gray-500 flex items-center gap-2 mt-1">
+                <Badge size={16} /> {currentEmployee.empID} |{" "}
+                {currentEmployee.department} - {currentEmployee.role}
+              </p>
+            </div>
+          </div>
         </div>
-        <button
-          onClick={() => navigate("/onboarding-form")}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-        >
-          <DocumentTextIcon className="w-5 h-5" />
-          Onboarding Form
-        </button>
+
+     
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-4">
+          {currentEmployee?.onboarded === 0 && (
+            <ActionButton
+              onClick={() => navigate("/onboarding-form")}
+              icon={<FilePlus size={20} />}
+              text="Complete Onboarding Form"
+            />
+          )}
+
+          {currentEmployee.department === "Sales" && (
+            <>
+              <ActionButton
+                onClick={() => navigate("/sales-punch-form")}
+                icon={<FilePlus size={20} />}
+                text="Sales Punch Form"
+              />
+              <ActionButton
+                onClick={() => navigate("/ds-form")}
+                icon={<FilePlus size={20} />}
+                text="Direct Session Form"
+              />
+            </>
+          )}
+        </div>
+
+        {/* Sales Stats */}
         {currentEmployee.department === "Sales" && (
-          <button
-            onClick={() => navigate("/sales-punch-form")}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <DocumentTextIcon className="w-5 h-5" />
-            Sales Punch Form
-          </button>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-4">
+              Sales Performance
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {salesStatCards.map((stat) => (
+                <StatCard key={stat.title} {...stat} />
+              ))}
+            </div>
+          </div>
         )}
-         {currentEmployee.department === "Sales" && (
-          <button
-            onClick={() => navigate("/ds-form")}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-          >
-            <DocumentTextIcon className="w-5 h-5" />
-            Direct Session Form
-          </button>
+
+        {/* Session Stats */}
+        {currentEmployee.department === "Sales" && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-4 mt-6">
+              Session Overview
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              {sessionStatCards.map((stat) => (
+                <StatCard key={stat.title} {...stat} />
+              ))}
+            </div>
+          </div>
         )}
+
+           {/* Quick Navigation */}
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4">
+            Quick Navigation
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {quickLinks.map((link) => (
+              <QuickLink
+                key={link.title}
+                title={link.title}
+                description={link.description}
+                icon={link.icon}
+                onClick={() => navigate(link.path)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </motion.div>
   );

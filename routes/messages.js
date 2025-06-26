@@ -3,6 +3,21 @@ import db from '../db.js';
 
 const router = express.Router();
 
+router.get('/unread/:receiverId', async (req, res) => {
+  const { receiverId } = req.params;
+  try {
+    const [rows] = await db.query(
+      `SELECT sender_id, COUNT(*) as unreadCount
+       FROM messages
+       WHERE receiver_id = ? AND is_read = 0
+       GROUP BY sender_id`,
+      [receiverId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch unread messages" });
+  }
+});
 // Get messages between two employees
 router.get('/:senderId/:receiverId', async (req, res) => {
   try {
@@ -69,20 +84,78 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Get unread message count for an employee
-router.get('/unread/:employeeId', async (req, res) => {
+
+// ✅ This is correct
+
+
+
+// PUT /api/messages/mark-read/:sender_id/:receiver_id
+router.put('/mark-read/:sender_id/:receiver_id', async (req, res) => {
+  const { sender_id, receiver_id } = req.params;
+
   try {
-    const [result] = await db.execute(
-      `SELECT COUNT(*) as count 
-       FROM messages 
-       WHERE receiver_id = ? AND is_read = false`,
-      [req.params.employeeId]
+    await db.query(
+      `UPDATE messages 
+       SET is_read = 1 
+       WHERE sender_id = ? AND receiver_id = ?`,
+      [sender_id, receiver_id] // ✅ Fixed order
     );
 
-    res.json({ count: result[0].count });
+    res.json({ success: true });
   } catch (err) {
-    console.error('Error getting unread count:', err);
-    res.status(500).json({ error: err.message });
+    console.error("Error marking messages as read:", err);
+    res.status(500).json({ error: "Failed to mark messages as read" });
+  }
+});
+
+// GET /api/messages/broadcast/:department
+router.get('/broadcast/:department', async (req, res) => {
+  const { department } = req.params;
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM broadcast_messages WHERE department = ? ORDER BY created_at ASC',
+      [department]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch broadcast messages' });
+  }
+});
+
+// POST /api/messages/broadcast
+router.post('/broadcast', async (req, res) => {
+  const { sender_id, department, message } = req.body;
+  if (!sender_id || !department || !message) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // Optionally fetch sender's name for display
+  let sender_name = '';
+  try {
+    const [empRows] = await db.query('SELECT name, surname FROM employees_table WHERE id = ?', [sender_id]);
+    if (empRows.length > 0) {
+      sender_name = empRows[0].name + ' ' + empRows[0].surname;
+    }
+  } catch (err) {
+    // fallback: leave sender_name empty
+  }
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO broadcast_messages (sender_id, sender_name, department, message, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [sender_id, sender_name, department, message]
+    );
+    // Return the inserted message
+    res.json({
+      id: result.insertId,
+      sender_id,
+      sender_name,
+      department,
+      message,
+      created_at: new Date()
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send broadcast message' });
   }
 });
 
